@@ -1,4 +1,5 @@
 library(shiny)
+library(shinyjs)
 library(shinydashboard)
 
 disclaimer <- "<p>Disclaimer: this is raw uncalibrated reference data, please contact <a href='https://www.york.ac.uk/chemistry/staff/eotechs/kread/'>Katie Read</a> for further details.</p>"
@@ -35,25 +36,37 @@ sidebar <- dashboardSidebar(
 )
 
 body <- dashboardBody(
+    useShinyjs(),
     tabItems(
         tabItem(tabName = "dashboard",
-                fluidRow(
-                        radioButtons(
-                            "daterange",
-                            "Date range",
-                            c("Previous week" = "week",
-                              "All data" = "all"),
-                            inline=TRUE,
-                            width="100%",
+                div(
+                    id="loading_page",
+                    div(style="height:100%, width:100%; margin-top:200px;",
+                        h1("Loading data...", align="center")
+                    )
+                ),
+                hidden(
+                    div(
+                        id="main_content",
+                        fluidRow(
+                                radioButtons(
+                                    "daterange",
+                                    "Date range",
+                                    c("Previous week" = "week",
+                                      "All data" = "all"),
+                                    inline=TRUE,
+                                    width="100%",
+                                ),
+                            align="center"
                         ),
-                    align="center"
-                ),
-                fluidRow(
-                    uiOutput("selectmeasurands"),
-                    align="center",
-                ),
-                div(style = "padding: 10px 10px;",
-                    uiOutput("plotui"),
+                        fluidRow(
+                            uiOutput("selectmeasurands"),
+                            align="center",
+                        ),
+                        div(style = "padding: 10px 10px;",
+                            uiOutput("plotui"),
+                        )
+                    )
                 )
         ),
         tabItem(tabName = "about",

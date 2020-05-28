@@ -1,4 +1,5 @@
 library(shiny)
+library(shinyjs)
 library(shinycssloaders)
 library(dplyr)
 library(ggplot2)
@@ -48,10 +49,10 @@ plot_data <- function(data, daterange, background_shading) {
                   strip.background = element_blank(),
                   panel.background = element_rect(fill = "transparent", color=NA), # bg of the panel
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
-                  panel.grid.major.x = element_line(colour='black', size=0.1),
-                  panel.grid.minor.x = element_line(colour='black', size=0.05),
-                  panel.grid.major.y = element_blank(),
-                  panel.grid.minor.y = element_blank(),
+                  panel.grid.major.y = element_line(colour='black', size=0.1),
+                  #panel.grid.minor.x = element_line(colour='black', size=0.05),
+                  panel.grid.major.x = element_blank(),
+                  panel.grid.minor.x = element_blank(),
                   axis.text.x = element_text(size=12, angle=45, hjust=1),
                   axis.text.y = element_text(size=10),
                   strip.text = element_text(size=12),
@@ -86,6 +87,10 @@ server <- function(input, output) {
                                     xmax=as_datetime(now()),
                                     ymin=-Inf,
                                     ymax=Inf))
+    
+    # Data's loaded
+    hide("loading_page")
+    show("main_content")
     
     df_plot <- reactive({
         req(input$daterange)

@@ -9,6 +9,8 @@ It requires a modern version of R (it has been tested on 4.0.0 but should work o
   - `dplyr`
   - `shiny`
   - `shinydashboard`
+  - `shinyjs`
+  - `shinycssloaders`
   - `lubridate`
   - `ggplot2`
   
