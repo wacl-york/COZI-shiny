@@ -1,12 +1,14 @@
 library(shiny)
+library(shinycssloaders)
 library(dplyr)
+library(ggplot2)
 library(lubridate)
 
 # File where clean data is stored
-DATA_FN <- "data/data.csv"
+DATA_FN <- "../vuetest/data/data.csv"
 
 # Height of each individual plot in px
-FACET_HEIGHT = 150
+FACET_HEIGHT = 100
 
 plot_data <- function(data, daterange, background_shading) {
     if (daterange == 'week') {
@@ -52,13 +54,14 @@ plot_data <- function(data, daterange, background_shading) {
                   panel.grid.minor.y = element_blank(),
                   axis.text.x = element_text(size=12, angle=45, hjust=1),
                   axis.text.y = element_text(size=10),
-                 strip.text = element_text(size=12)
+                  strip.text = element_text(size=12),
+                  panel.spacing.y = unit(1.5, "lines")
                  )
     plt
 }
 
 server <- function(input, output) {
-    
+        
     # Load raw data and all available measurands
     df <- read.csv(DATA_FN)
     df$timestamp <- as_datetime(df$timestamp)
@@ -90,6 +93,7 @@ server <- function(input, output) {
         if (is.null(df) || is.null(df_week)) {
             return(NULL)
         }
+    
         
         # Filter to selected date range
         if (input$daterange == 'week') {
@@ -112,7 +116,8 @@ server <- function(input, output) {
     output$plotui <- renderUI({
         # Height of plot changes dynamically by number of selected measurands
         req(input$measurandscheckbox)
-        plotOutput("timeseries", height = FACET_HEIGHT * length(input$measurandscheckbox))
+        withSpinner(plotOutput("timeseries", height = FACET_HEIGHT * length(input$measurandscheckbox)),
+                    color="#28a745")
     })
     
     output$selectmeasurands <- renderUI({
@@ -120,6 +125,7 @@ server <- function(input, output) {
                            "Pollutants to display",
                            choiceNames=all_measurands_no_units,
                            choiceValues=all_measurands,
-                           selected=all_measurands)
+                           selected=all_measurands,
+                           inline=TRUE)
     })
 }
