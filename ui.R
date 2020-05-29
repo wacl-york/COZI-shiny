@@ -1,6 +1,7 @@
 library(shiny)
 library(shinyjs)
 library(shinydashboard)
+library(shinycssloaders)
 
 disclaimer <- "<p>Disclaimer: this is raw uncalibrated reference data, please contact <a href='https://www.york.ac.uk/chemistry/staff/eotechs/kread/'>Katie Read</a> for further details.</p>"
 footer <- tags$footer("Footer", align = "center", 
@@ -30,8 +31,8 @@ footer <- tags$footer("Footer", align = "center",
 
 sidebar <- dashboardSidebar(
     sidebarMenu(
-        menuItem("Live data", tabName = "dashboard", icon = icon("dashboard")),
-        menuItem("About", icon = icon("th"), tabName = "about")
+        menuItem("Live data", tabName = "dashboard", icon = icon("chart-bar")),
+        menuItem("About", icon = icon("info"), tabName = "about")
     )
 )
 
@@ -64,7 +65,8 @@ body <- dashboardBody(
                             align="center",
                         ),
                         div(style = "padding: 10px 10px;",
-                            uiOutput("plotui"),
+                            withSpinner(uiOutput("plotui"),
+                                        color="#28a745")
                         )
                     )
                 )

@@ -1,3 +1,2 @@
-  - Add loading bar, both when plot recalculates and when initial data is loading
   - Finalise branding location
-  - Change way plots are drawn. Rather than redrawing all plots when measurands are changed, only add/remove as needed
+  - Get loading spinner working again
