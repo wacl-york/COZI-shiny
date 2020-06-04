@@ -3,7 +3,19 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
-disclaimer <- "<p>Disclaimer: this is raw uncalibrated reference data, please contact <a href='https://www.york.ac.uk/chemistry/staff/eotechs/kread/'>Katie Read</a> for further details.</p>"
+about_text <- "
+<p>
+This is air quality data from the National Centre for Atmospheric Science (NCAS) COZI* Laboratory at the <a href='https://www.york.ac.uk/chemistry/research/wacl/'>Wolfson Atmospheric Chemistry Laboratories (WACL)</a>, University of York.  
+The instruments are housed in COZI and the measurements are made from the WACL rooftop at ~10m through a 1 inch sampling manifold. The data shown here is not final but raw instrument data, and so it may therefore be subject to further calibrations. In addition the COZI is a working instrument characterisation facility and so gaps in the measurements may be necessary when instruments are being used for other routine work.  
+</p>
+<p>
+Please contact <a href='mailto:katie.read@ncas.ac.uk'>Katie Read</a> for more information about these measurements or what the <a href='https://amof.ac.uk/laboratory/carbon-monoxide-and-ozone-calibration-laboratory-cozi/ '>COZI has to offer the community</a>.
+Meteorological data from the same location is also available on request.
+</p>
+<p>
+*COZI - Characterisation (e.g. of Ozone measurements) and Intercomparison Laboratory 
+</p>
+"
 footer <- tags$footer("Footer", align = "center", 
              style = "
                       * {
@@ -12,9 +24,7 @@ footer <- tags$footer("Footer", align = "center",
                       html, body {
                           height: 100%;
                       }
-                      .wrapper {
-                          min-height: 100%;
-                          margin: 0 auto -300px; /* the bottom margin is the negative value of the footer's height */
+                      .wrapper { min-height: 100%; margin: 0 auto -300px; /* the bottom margin is the negative value of the footer's height */
                       }
                       .footer, .push {
                         height: 300px; /* .push must be the same height as .footer */
@@ -42,9 +52,7 @@ body <- dashboardBody(
         tabItem(tabName = "dashboard",
                 div(
                     id="loading_page",
-                    div(style="height:100%, width:100%; margin-top:200px;",
                         h1("Loading data...", align="center")
-                    )
                 ),
                 hidden(
                     div(
@@ -64,25 +72,25 @@ body <- dashboardBody(
                             uiOutput("selectmeasurands"),
                             align="center",
                         ),
-                        div(style = "padding: 10px 10px;",
-                            withSpinner(uiOutput("plotui"),
-                                        color="#28a745")
-                        )
+                        withSpinner(uiOutput("plotui"),
+                                    color="#28a745")
                     )
                 )
         ),
         tabItem(tabName = "about",
-                h2("About"),
-                p("Text description of COZI, what this data represents, etc..."),
-                HTML(disclaimer),
-                p("Branding could go here. WACL logo, NERC logo, University logo?"),
-                p("Or would branding be better in a footer so it appears on every page? Or on the right hand side of top bar? Or on bottom of sidebar?")
+                div(id="about",
+                    h2("About"),
+                    HTML(about_text),
+                )
         )
     )
 )
 
 # Put them together into a dashboardPage
 ui <- tagList(
+        tags$head(
+            tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+        ),
         dashboardPage(
                 dashboardHeader(title = "COZI Reference Data"),
                 sidebar,
