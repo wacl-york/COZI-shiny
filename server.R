@@ -62,7 +62,7 @@ plot_data_var <- function(data, var, daterange) {
                           ymax=ymax),
                       alpha=0.2,
                       data=background_shading) +
-            geom_line(aes(x=timestamp, y=value)) +
+            geom_line(aes(x=timestamp, y=value), na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = "%d %b %Y",
                              date_minor_breaks = x_axis_minor_break,
