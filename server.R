@@ -7,7 +7,7 @@ library(lubridate)
 library(gridExtra)
 
 # File where clean data is stored
-DATA_FN <- "../vuetest/data/data.csv"
+DATA_FN <- "clean.csv"
 
 # Height of each individual plot in px
 FACET_HEIGHT = 170
@@ -126,7 +126,6 @@ server <- function(input, output) {
         previous_plotted <<- selected
     }, ignoreNULL = F)
     
-    
     # Plot UI element has reactive dependency only on the date range.
     # When the date range is changed, all the measurand plots are created
     output$plotui <- renderUI({
@@ -144,7 +143,7 @@ server <- function(input, output) {
         for (var in all_measurands) {
             div_name <- generate_plot_id(var)
             plt_tag <- div(id=div_name, create_plot_div(data, var, input$daterange),
-                           style="padding-bottom: 20px")
+                           style="padding-bottom: 20px;")
             
             if (!var %in% previous_plotted) {
                 plt_tag <- hidden(plt_tag)

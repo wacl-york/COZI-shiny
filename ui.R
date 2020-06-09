@@ -3,6 +3,12 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
+# Replaces the script used in shinycssloaders::withSpinner with our edited version
+modified_spinner <- function(input_tags) {
+    input_tags[[2]] <- tags$script(src="spinner_modified.js")
+    input_tags
+}
+
 about_text <- "
 <p>
 This is air quality data from the National Centre for Atmospheric Science (NCAS) COZI* Laboratory at the <a href='https://www.york.ac.uk/chemistry/research/wacl/'>Wolfson Atmospheric Chemistry Laboratories (WACL)</a>, University of York.  
@@ -72,8 +78,10 @@ body <- dashboardBody(
                             uiOutput("selectmeasurands"),
                             align="center",
                         ),
-                        withSpinner(uiOutput("plotui"),
-                                    color="#28a745")
+                        # Point the spinner JS at our modified version that correctly
+                        # doesn't stop spinning before the plots are loaded
+                        modified_spinner(withSpinner(uiOutput("plotui"),
+                                                     color = "#28a745"))
                     )
                 )
         ),
