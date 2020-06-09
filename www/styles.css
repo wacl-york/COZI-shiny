@@ -1,0 +1,20 @@
+p {
+   font-size: medium;
+}
+
+#loading_page {
+    height:100%; 
+    width:100%; 
+    margin-top:200px;
+}
+
+#main_content {
+    padding: 10px 10px;
+}
+
+#about {
+    padding-left: 50px;
+    padding-right: 50px;
+    text-align: justify;
+    text-justify: inter-word;
+}
