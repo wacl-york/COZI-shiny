@@ -7,7 +7,7 @@ library(lubridate)
 library(gridExtra)
 
 # File where clean data is stored
-DATA_FN <- "data.csv"
+DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 # Height of each individual plot in px
 FACET_HEIGHT = 170
