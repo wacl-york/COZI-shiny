@@ -61,6 +61,12 @@ body <- dashboardBody(
                         h1("Loading data...", align="center")
                 ),
                 hidden(
+
+                    div(id="missing_data",
+                        uiOutput("missing_data_text")
+                        )
+                ),
+                hidden(
                     div(
                         id="main_content",
                         fluidRow(

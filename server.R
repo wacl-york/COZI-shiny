@@ -7,7 +7,8 @@ library(lubridate)
 library(gridExtra)
 
 # File where clean data is stored
-DATA_FN <- "clean.csv"
+DATA_FN <- "/mnt/shiny/cozi/data.csv"
+
 
 # Height of each individual plot in px
 FACET_HEIGHT = 170
@@ -88,7 +89,17 @@ plot_data_var <- function(data, var, daterange) {
 }
 
 server <- function(input, output) {
-        
+
+    output$missing_data_text <- renderUI({
+        h3(sprintf("Error: data file %s could not be found.", DATA_FN), id="missing_data_text")
+    })
+    
+    if (!file.exists(DATA_FN)) {
+        shinyjs::hide("loading_page")
+        shinyjs::show("missing_data")
+        return(NULL)
+    }
+    
     # Load raw data and all available measurands
     df <- read.csv(DATA_FN) %>%
             mutate(timestamp = as_datetime(timestamp)) %>%
@@ -111,8 +122,7 @@ server <- function(input, output) {
                            selected=all_measurands,
                            inline=TRUE)
     })
-    
-    
+
     # When a measurand checkbox is checked or unchecked, 
     # toggle the corresponding plot div
     observeEvent(input$measurandscheckbox, {
