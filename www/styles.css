@@ -17,9 +17,11 @@ p {
     padding-right: 50px;
     text-align: justify;
     text-justify: inter-word;
+
 }
 
 #missing_data_text {
     text-align: center;
     color: red;
+
 }
