@@ -4,6 +4,7 @@ library(ggplot2)
 library(lubridate)
 library(gridExtra)
 library(data.table)
+library(openair)
 
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
@@ -52,6 +53,17 @@ create_nox_plot_div <- function(data, var, daterange) {
                   legend.position=c(0.95, 0.85),
                   legend.text = element_text(size=10)) 
         renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
+    }
+}
+
+# won't be rendered correctly
+create_windrose_div <- function(data) {
+    plt <- windRose(data)
+    if (is.null(plt)) {
+        renderUI(p(sprintf("Error: cannot display plot for %s.", var),
+                      class="missing_data_text"))
+    } else {
+        renderPlot(plt, bg="transparent", height=FACET_HEIGHT*2)
     }
 }
     
@@ -176,7 +188,8 @@ server <- function(input, output) {
         # Straight forward time series
         for (var in AQ_TIME_SERIES_VARS) {
             div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, create_plot_div(data[ measurand == var ], var, input$daterange),
+            plt_tag <- div(id=div_name, 
+                           create_plot_div(data[ measurand == var ], var, input$daterange),
                            style="padding-bottom: 20px;")
             
             if (!var %in% previous_plotted) {
@@ -200,7 +213,8 @@ server <- function(input, output) {
         # Met values
         for (var in MET_TIME_SERIES_VARS) {
             div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, create_plot_div(data[ measurand == var ], var, input$daterange),
+            plt_tag <- div(id=div_name, 
+                           create_plot_div(data[ measurand == var ], var, input$daterange),
                            style="padding-bottom: 20px;")
             
             if (!var %in% previous_plotted) {
@@ -210,6 +224,16 @@ server <- function(input, output) {
         }
         
         # Wind rose
+        # TODO Cast dataframe to wide
+        wind_df <- dcast(data[ grepl("Wind", measurand) ], timestamp ~ measurand)
+        setnames(wind_df, old=c('timestamp', 'Wind direction', 'Wind speed'), new=c('timestamp', 'wd', 'ws'))
+        wind_df
+        
+        div_name <- generate_plot_id("Wind rose")
+        plt_tag <- div(id=div_name, 
+                       create_windrose_div(wind_df),
+                       style="padding-bottom: 20px;")
+        output_tags <- tagAppendChild(output_tags, plt_tag)
         
        output_tags
     })
