@@ -35,9 +35,13 @@ plot_data_var <- function(data, var, daterange) {
     if (daterange == 'week') {
         x_axis_break <- '1 day'
         x_axis_minor_break <- '12 hours'
+        x_axis_label_fmt <- "%d %b %H:%S"
+        minor_x_gridline <- element_line(colour='black', size=0.05)
     } else if (daterange == 'all') {
         x_axis_break <- '1 week'
         x_axis_minor_break <- '1 day'
+        x_axis_label_fmt <- "%d %b %Y"
+        minor_x_gridline <- element_blank()
     } 
         
     ylabel <- paste(var, unique(data$unit), sep=" ")
@@ -67,7 +71,7 @@ plot_data_var <- function(data, var, daterange) {
                       data=background_shading) +
             geom_line(aes(x=timestamp, y=value), na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
-                             date_labels = "%d %b %Y",
+                             date_labels = x_axis_label_fmt,
                              date_minor_breaks = x_axis_minor_break,
                              limits=c(as.POSIXct(as_date(min(data$timestamp))),
                                       as.POSIXct(now())),
@@ -78,9 +82,8 @@ plot_data_var <- function(data, var, daterange) {
                   panel.background = element_rect(fill = "transparent", color=NA), # bg of the panel
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
                   panel.grid.major.y = element_line(colour='black', size=0.1),
-                  #panel.grid.minor.x = element_line(colour='black', size=0.05),
+                  panel.grid.minor.x = minor_x_gridline,
                   panel.grid.major.x = element_blank(),
-                  panel.grid.minor.x = element_blank(),
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
                   axis.text.x = element_text(size=12),#, angle=45, hjust=1),
                   axis.text.y = element_text(size=12),
