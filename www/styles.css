@@ -20,7 +20,7 @@ p {
 
 }
 
-#missing_data_text {
+.missing_data_text {
     text-align: center;
     color: red;
 
@@ -42,4 +42,5 @@ p {
 
 .sidebar-toggle {
     margin-top: 15px;
+
 }
