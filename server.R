@@ -8,6 +8,10 @@ library(data.table)
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
+AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4', 'O3')
+MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity')
+NOX_VARS <- c('NO', 'NO2', 'NOx')
+
 
 # Height of each individual plot in px
 FACET_HEIGHT = 170
@@ -29,6 +33,27 @@ create_plot_div <- function(data, var, daterange) {
         renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
     }
 }
+
+# As with create_plot_div, this functionality needs to be separate from
+# the code used to actually generate the plot, else plots
+# won't be rendered correctly
+create_nox_plot_div <- function(data, var, daterange) {
+    plt <- plot_data_var(data, var, daterange)
+    if (is.null(plt)) {
+        renderUI(p(sprintf("Error: cannot display plot for %s.", var),
+                      class="missing_data_text"))
+    } else {
+        plt$layers[[2]] <- NULL
+        plt <- plt + 
+            geom_line(aes(x=timestamp, y=value, colour=measurand), na.rm=TRUE) +
+            scale_colour_brewer("", palette = "Dark2") +
+            theme(legend.background = element_rect(fill = "transparent", color=NA),
+                  legend.key = element_rect(fill = "transparent", color=NA),
+                  legend.position=c(0.95, 0.85),
+                  legend.text = element_text(size=10)) 
+        renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
+    }
+}
     
 
 plot_data_var <- function(data, var, daterange) {
@@ -44,7 +69,7 @@ plot_data_var <- function(data, var, daterange) {
         minor_x_gridline <- element_blank()
     } 
         
-    ylabel <- paste(var, unique(data$unit), sep=" ")
+    ylabel <- sprintf("%s (%s)", var, unique(data$unit))
     
     # Generate background shading by alternate day
     start_date <- as_date(min(data$timestamp))
@@ -61,14 +86,16 @@ plot_data_var <- function(data, var, daterange) {
                                      end = as_datetime(ifelse(shading_start == today(), now(), shading_start + days(1))),
                                      ymin=-Inf,
                                      ymax=Inf)
-               
+    
     plt <- ggplot(data) +
             geom_rect(aes(xmin=start, 
                           xmax=end, 
                           ymin=ymin, 
                           ymax=ymax),
                       alpha=0.2,
-                      data=background_shading) +
+                      data=background_shading,
+                      na.rm=TRUE
+                      ) +
             geom_line(aes(x=timestamp, y=value), na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = x_axis_label_fmt,
@@ -77,7 +104,7 @@ plot_data_var <- function(data, var, daterange) {
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
             theme_bw() +
-            labs(y=ylabel, title=gsub("\ .*", "", var)) +
+            labs(y=ylabel, title=var) +
             theme(axis.title.x = element_blank(),
                   panel.background = element_rect(fill = "transparent", color=NA), # bg of the panel
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
@@ -92,6 +119,7 @@ plot_data_var <- function(data, var, daterange) {
                  )
     plt
 }
+
 
 server <- function(input, output) {
 
@@ -108,25 +136,16 @@ server <- function(input, output) {
     # Load raw data and all available measurands
     df <- fread(DATA_FN)
     df[, timestamp := as_datetime(timestamp)]
-    df[, c("measurand", "unit") := tstrsplit(measurand, "\ ", fixed=TRUE)]
+    df[, c("measurand", "unit") := tstrsplit(measurand, "\ (", fixed=TRUE)]
+    df[, unit := gsub(")", "", unit)]
     
+    # TODO Turn this into previous_plotted = sapply(get_div_id, c(TIME_SERIES_VARS, NOx, WindRose))
     all_measurands <- unique(df$measurand)
     previous_plotted <- all_measurands
     
     # Create second dataset with last week's data
     week_ago <- as_datetime(now(tzone="UTC") - days(7))
     
-    # When data has loaded can populate the checkbox with the names
-    # of the measurands in the loaded data
-    output$selectmeasurands <- renderUI({
-        checkboxGroupInput("measurandscheckbox",
-                           "Pollutants to display",
-                           choiceNames=all_measurands,
-                           choiceValues=all_measurands,
-                           selected=all_measurands,
-                           inline=TRUE)
-    })
-
     # When a measurand checkbox is checked or unchecked, 
     # toggle the corresponding plot div
     observeEvent(input$measurandscheckbox, {
@@ -154,7 +173,8 @@ server <- function(input, output) {
             return(NULL)
         }
         
-        for (var in all_measurands) {
+        # Straight forward time series
+        for (var in AQ_TIME_SERIES_VARS) {
             div_name <- generate_plot_id(var)
             plt_tag <- div(id=div_name, create_plot_div(data[ measurand == var ], var, input$daterange),
                            style="padding-bottom: 20px;")
@@ -164,6 +184,32 @@ server <- function(input, output) {
             }
             output_tags <- tagAppendChild(output_tags, plt_tag)
         }
+        
+        # Combined NOx plot
+        div_name <- generate_plot_id("NOx_combined")
+        # TODO more efficient way of doing this %in%? maybe join?
+        plt_tag <- div(id=div_name, 
+                       create_nox_plot_div(data[ measurand %in% NOX_VARS ], "NOx combined", input$daterange),
+                       style="padding-bottom: 20px;")
+        
+        if (!var %in% previous_plotted) {
+            plt_tag <- hidden(plt_tag)
+        }
+        output_tags <- tagAppendChild(output_tags, plt_tag)
+        
+        # Met values
+        for (var in MET_TIME_SERIES_VARS) {
+            div_name <- generate_plot_id(var)
+            plt_tag <- div(id=div_name, create_plot_div(data[ measurand == var ], var, input$daterange),
+                           style="padding-bottom: 20px;")
+            
+            if (!var %in% previous_plotted) {
+                plt_tag <- hidden(plt_tag)
+            }
+            output_tags <- tagAppendChild(output_tags, plt_tag)
+        }
+        
+        # Wind rose
         
        output_tags
     })

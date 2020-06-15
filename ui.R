@@ -3,6 +3,9 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
+checkbox_labels <- c('CO', 'CO2', 'CH4', 'O3', 'NOx', 'Temperature', 'Relative humidity', 'Wind Rose')
+checkbox_values <- c('CO', 'CO2', 'CH4', 'O3', 'NOx_combined', 'Temperature', 'Relative humidity', 'Wind Rose')
+
 # Replaces the script used in shinycssloaders::withSpinner with our edited version
 modified_spinner <- function(input_tags) {
     input_tags[[2]] <- tags$script(src="spinner_modified.js")
@@ -58,7 +61,12 @@ body <- dashboardBody(
                             align="center"
                         ),
                         fluidRow(
-                            uiOutput("selectmeasurands"),
+                            checkboxGroupInput("measurandscheckbox",
+                                               "Pollutants to display",
+                                               choiceNames=checkbox_labels,
+                                               choiceValues=checkbox_values,
+                                               selected=checkbox_values,
+                                               inline=TRUE),
                             align="center",
                         ),
                         # Point the spinner JS at our modified version that correctly
