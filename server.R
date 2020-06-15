@@ -1,10 +1,9 @@
 library(shiny)
 library(shinyjs)
-library(dplyr)
-library(tidyr)
 library(ggplot2)
 library(lubridate)
 library(gridExtra)
+library(data.table)
 
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
@@ -23,7 +22,12 @@ generate_plot_id <- function(var) {
 # reactive context
 create_plot_div <- function(data, var, daterange) {
     plt <- plot_data_var(data, var, daterange)
-    renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
+    if (is.null(plt)) {
+        renderUI(p(sprintf("Error: cannot display plot for %s.", var),
+                      class="missing_data_text"))
+    } else {
+        renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
+    }
 }
     
 
@@ -35,28 +39,26 @@ plot_data_var <- function(data, var, daterange) {
         x_axis_break <- '1 week'
         x_axis_minor_break <- '1 day'
     } 
-    df_plt <- data %>%
-            filter(measurand == var)
         
-    ylabel <- paste(var, unique(df_plt$unit), sep=" ")
+    ylabel <- paste(var, unique(data$unit), sep=" ")
     
     # Generate background shading by alternate day
-    start_date <- as_date(min(df_plt$timestamp))
+    start_date <- as_date(min(data$timestamp))
+    if (is.infinite(start_date)) {
+        return(NULL)
+    }
     num_days_plot <- floor(difftime(today(), start_date, units = "days")/2)
     shading_start <- POSIXct(num_days_plot+1)
     shading_start[1] <- today()
     for (i in 1:num_days_plot) {
         shading_start[i+1] <- today() - days(i*2)
     }
-    background_shading <- data.frame(start=shading_start) %>%
-        mutate(end = ifelse(start == today(), now(), shading_start + days(1)),
-               start = as_datetime(start),
-               end = as_datetime(end),
-               ymin=-Inf,
-               ymax=Inf)
+    background_shading <- data.frame(start=as_datetime(shading_start),
+                                     end = as_datetime(ifelse(shading_start == today(), now(), shading_start + days(1))),
+                                     ymin=-Inf,
+                                     ymax=Inf)
                
-    plt <- df_plt %>%
-            ggplot() +
+    plt <- ggplot(data) +
             geom_rect(aes(xmin=start, 
                           xmax=end, 
                           ymin=ymin, 
@@ -67,7 +69,7 @@ plot_data_var <- function(data, var, daterange) {
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = "%d %b %Y",
                              date_minor_breaks = x_axis_minor_break,
-                             limits=c(as.POSIXct(as_date(min(df_plt$timestamp))),
+                             limits=c(as.POSIXct(as_date(min(data$timestamp))),
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
             theme_bw() +
@@ -91,7 +93,7 @@ plot_data_var <- function(data, var, daterange) {
 server <- function(input, output) {
 
     output$missing_data_text <- renderUI({
-        h3(sprintf("Error: data file %s could not be found.", DATA_FN), id="missing_data_text")
+        h3(sprintf("Error: data file %s could not be found.", DATA_FN), class="missing_data_text")
     })
     
     if (!file.exists(DATA_FN)) {
@@ -101,16 +103,15 @@ server <- function(input, output) {
     }
     
     # Load raw data and all available measurands
-    df <- read.csv(DATA_FN) %>%
-            mutate(timestamp = as_datetime(timestamp)) %>%
-            separate(measurand, c("measurand", "unit"), "\ ")
+    df <- fread(DATA_FN)
+    df[, timestamp := as_datetime(timestamp)]
+    df[, c("measurand", "unit") := tstrsplit(measurand, "\ ", fixed=TRUE)]
+    
     all_measurands <- unique(df$measurand)
     previous_plotted <- all_measurands
     
     # Create second dataset with last week's data
-    week_ago <- now(tzone="UTC") - days(7)
-    df_week <- df %>%
-        filter(timestamp >= as_datetime(week_ago))
+    week_ago <- as_datetime(now(tzone="UTC") - days(7))
     
     # When data has loaded can populate the checkbox with the names
     # of the measurands in the loaded data
@@ -143,7 +144,7 @@ server <- function(input, output) {
         
         req(input$daterange)
         if (input$daterange == 'week') {
-            data <- df_week
+            data <- df[ timestamp >= week_ago ]
         } else if (input$daterange == 'all') {
             data <- df
         } else {
@@ -152,7 +153,7 @@ server <- function(input, output) {
         
         for (var in all_measurands) {
             div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, create_plot_div(data, var, input$daterange),
+            plt_tag <- div(id=div_name, create_plot_div(data[ measurand == var ], var, input$daterange),
                            style="padding-bottom: 20px;")
             
             if (!var %in% previous_plotted) {

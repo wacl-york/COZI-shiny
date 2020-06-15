@@ -6,7 +6,7 @@ This repository contains a Shiny web-application that displays the COZI instrume
 
 It requires a modern version of R (it has been tested on 4.0.0 but should work on 3.4.x) and the following packages:
 
-  - `dplyr`
+  - `data.table`
   - `shiny`
   - `shinydashboard`
   - `shinyjs`
