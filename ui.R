@@ -22,29 +22,6 @@ Meteorological data from the same location is also available on request.
 *COZI - Characterisation (e.g. of Ozone measurements) and Intercomparison Laboratory 
 </p>
 "
-footer <- tags$footer("Footer", align = "center", 
-             style = "
-                      * {
-                          margin: 0;
-                      }
-                      html, body {
-                          height: 100%;
-                      }
-                      .wrapper { min-height: 100%; margin: 0 auto -300px; /* the bottom margin is the negative value of the footer's height */
-                      }
-                      .footer, .push {
-                        height: 300px; /* .push must be the same height as .footer */
-                      }
-                    
-                      /*
-
-                      Sticky Footer by Ryan Fait
-                      http://ryanfait.com/
-                    
-                      */"
-                      )
-
-
 sidebar <- dashboardSidebar(
     sidebarMenu(
         menuItem("Live data", tabName = "dashboard", icon = icon("chart-bar")),
@@ -109,27 +86,22 @@ ui <- tagList(
                 dashboardHeader(title = "COZI Reference Data",
                                 tags$li(a(href = 'https://www.york.ac.uk/chemistry/research/wacl/',
                                           img(src = 'logos/wacl.png',
-                                              title = "WACL", height = "30px"),
-                                          style = "padding-top:10px; padding-bottom:10px;"),
+                                              title = "WACL", height = "50px")),
                                         class = "dropdown"),
                                 tags$li(a(href = 'https://www.york.ac.uk/',
                                           img(src = 'logos/uoy.png',
-                                              title = "University of York", height = "30px"),
-                                          style = "padding-top:10px; padding-bottom:10px;"),
+                                              title = "University of York", height = "50px")),
                                         class = "dropdown"),
                                 tags$li(a(href = 'https://amof.ac.uk/',
                                           img(src = 'logos/amof.png',
-                                              title = "AMOF", height = "30px"),
-                                          style = "padding-top:10px; padding-bottom:10px;"),
+                                              title = "AMOF", height = "50px")),
                                         class = "dropdown"),
                                 tags$li(a(href = 'https://www.ncas.ac.uk/en/',
                                           img(src = 'logos/ncas.png',
-                                              title = "NCAS", height = "30px"),
-                                          style = "padding-top:10px; padding-bottom:10px;"),
+                                              title = "NCAS", height = "50px")),
                                         class = "dropdown")),
                 sidebar,
                 body,
                 skin="green"
             ),
-        #footer TODO This is how can add footer when/if needed
 )
