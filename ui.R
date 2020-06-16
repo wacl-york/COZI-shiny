@@ -54,7 +54,7 @@ body <- dashboardBody(
                                     "daterange",
                                     "Date range",
                                     c("Previous week" = "week",
-                                      "All data" = "all"),
+                                      "All time" = "all"),
                                     inline=TRUE,
                                     width="100%",
                                 ),
@@ -62,7 +62,7 @@ body <- dashboardBody(
                         ),
                         fluidRow(
                             checkboxGroupInput("measurandscheckbox",
-                                               "Pollutants to display",
+                                               "Charts to display",
                                                choiceNames=checkbox_labels,
                                                choiceValues=checkbox_values,
                                                selected=checkbox_values,

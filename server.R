@@ -59,11 +59,11 @@ create_nox_plot_div <- function(data, var, daterange) {
 # won't be rendered correctly
 create_windrose_div <- function(data) {
     plt <- windRose(data)
-    if (is.null(plt)) {
+    if (is.null(plt$plot)) {
         renderUI(p(sprintf("Error: cannot display plot for %s.", var),
                       class="missing_data_text"))
     } else {
-        renderPlot(plt, bg="transparent", height=FACET_HEIGHT*2)
+        renderPlot(plt$plot, bg="transparent", height=FACET_HEIGHT*2)
     }
 }
     
@@ -202,7 +202,7 @@ server <- function(input, output) {
         div_name <- generate_plot_id("NOx_combined")
         # TODO more efficient way of doing this %in%? maybe join?
         plt_tag <- div(id=div_name, 
-                       create_nox_plot_div(data[ measurand %in% NOX_VARS ], "NOx combined", input$daterange),
+                       create_nox_plot_div(data[ measurand %in% NOX_VARS ], "NOx", input$daterange),
                        style="padding-bottom: 20px;")
         
         if (!var %in% previous_plotted) {
