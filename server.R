@@ -9,13 +9,22 @@ library(openair)
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
+# Variables are grouped into 4: 
+# AQ Time series, Met Time series, Nox combined time series, and wind rose
 AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4', 'O3')
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
 
-
 # Height of each individual plot in px
 FACET_HEIGHT = 170
+
+# Earliest timepoint to plot in the full time series
+FIRST_TIMEPOINT <- as_date("2020-04-08")
+
+# Calculates date 7 days ago
+week_ago <- function() {
+    as_date(now(tzone="UTC") - days(7))
+}
 
 generate_plot_id <- function(var) {
     sprintf("plot_%s", gsub("\ .*", "", var))
@@ -74,21 +83,19 @@ plot_data_var <- function(data, var, daterange) {
         x_axis_minor_break <- '12 hours'
         x_axis_label_fmt <- "%d %b %H:%S"
         minor_x_gridline <- element_line(colour='black', size=0.05)
+        earliest_date <- week_ago()
     } else if (daterange == 'all') {
         x_axis_break <- '1 week'
         x_axis_minor_break <- '1 day'
         x_axis_label_fmt <- "%d %b %Y"
         minor_x_gridline <- element_blank()
+        earliest_date <- FIRST_TIMEPOINT
     } 
         
     ylabel <- sprintf("%s (%s)", var, unique(data$unit))
     
     # Generate background shading by alternate day
-    start_date <- as_date(min(data$timestamp))
-    if (is.infinite(start_date)) {
-        return(NULL)
-    }
-    num_days_plot <- floor(difftime(today(), start_date, units = "days")/2)
+    num_days_plot <- floor(difftime(today(), earliest_date, units = "days")/2)
     shading_start <- POSIXct(num_days_plot+1)
     shading_start[1] <- today()
     for (i in 1:num_days_plot) {
@@ -112,7 +119,7 @@ plot_data_var <- function(data, var, daterange) {
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = x_axis_label_fmt,
                              date_minor_breaks = x_axis_minor_break,
-                             limits=c(as.POSIXct(as_date(min(data$timestamp))),
+                             limits=c(as.POSIXct(earliest_date),
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
             theme_bw() +
@@ -155,9 +162,6 @@ server <- function(input, output) {
     all_measurands <- unique(df$measurand)
     previous_plotted <- all_measurands
     
-    # Create second dataset with last week's data
-    week_ago <- as_datetime(now(tzone="UTC") - days(7))
-    
     # When a measurand checkbox is checked or unchecked, 
     # toggle the corresponding plot div
     observeEvent(input$measurandscheckbox, {
@@ -178,7 +182,7 @@ server <- function(input, output) {
         
         req(input$daterange)
         if (input$daterange == 'week') {
-            data <- df[ timestamp >= week_ago ]
+            data <- df[ timestamp >= week_ago() ]
         } else if (input$daterange == 'all') {
             data <- df
         } else {
