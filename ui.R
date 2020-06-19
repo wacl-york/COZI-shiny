@@ -3,8 +3,8 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
-checkbox_labels <- c('CO', 'CO2', 'CH4', 'O3', 'NOx', 'Temperature', 'Relative humidity', 'Wind rose')
-checkbox_values <- c('CO', 'CO2', 'CH4', 'O3', 'NOx_combined', 'Temperature', 'Relative humidity', 'Wind rose')
+checkbox_labels <- c('CO', 'CO2', 'CH4', 'O3', 'NOx', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
+checkbox_values <- c('CO', 'CO2', 'CH4', 'O3', 'NOx_combined', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
 
 # Replaces the script used in shinycssloaders::withSpinner with our edited version
 modified_spinner <- function(input_tags) {

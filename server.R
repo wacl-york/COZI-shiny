@@ -12,7 +12,7 @@ DATA_FN <- "/mnt/shiny/cozi/data.csv"
 # Variables are grouped into 4: 
 # AQ Time series, Met Time series, Nox combined time series, and wind rose
 AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4', 'O3')
-MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity')
+MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
 
 # Height of each individual plot in px
