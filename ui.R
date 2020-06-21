@@ -3,9 +3,6 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
-checkbox_labels <- c('CO', 'CO2', 'CH4', 'O3', 'NOx', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
-checkbox_values <- c('CO', 'CO2', 'CH4', 'O3', 'NOx_combined', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
-
 # Replaces the script used in shinycssloaders::withSpinner with our edited version
 modified_spinner <- function(input_tags) {
     input_tags[[2]] <- tags$script(src="spinner_modified.js")
@@ -60,19 +57,25 @@ body <- dashboardBody(
                                 ),
                             align="center"
                         ),
-                        fluidRow(
-                            checkboxGroupInput("measurandscheckbox",
-                                               "Charts to display",
-                                               choiceNames=checkbox_labels,
-                                               choiceValues=checkbox_values,
-                                               selected=checkbox_values,
-                                               inline=TRUE),
-                            align="center",
-                        ),
                         # Point the spinner JS at our modified version that correctly
                         # doesn't stop spinning before the plots are loaded
-                        modified_spinner(withSpinner(uiOutput("plotui"),
-                                                     color = "#28a745"))
+                        box(
+                            modified_spinner(withSpinner(uiOutput("aqbox", height="800px"),
+                                                         color = "#28a745")),
+                            solidHeader = TRUE,
+                            title="Air Quality",
+                            status="success",
+                            height="800px",
+                        ),
+                        box(
+                            modified_spinner(withSpinner(uiOutput("metbox",
+                                                                  height="800px"),
+                                                         color = "#28a745")),
+                            solidHeader = TRUE,
+                            title="Meteorological",
+                            status="primary",
+                            height="800px",
+                        ),
                     )
                 )
         ),

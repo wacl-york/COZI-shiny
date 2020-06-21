@@ -6,6 +6,13 @@ library(gridExtra)
 library(data.table)
 library(openair)
 
+# TODO:
+# Get boxes fitting in page
+# Get spinner working
+# Date axis rotated
+# Side bar smaller
+# Plots same width
+
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
@@ -15,8 +22,10 @@ AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4', 'O3')
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
 
+all_vars <- c('CO', 'CO2', 'CH4', 'O3', 'NOx', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
+
 # Height of each individual plot in px
-FACET_HEIGHT = 170
+FACET_HEIGHT = 130
 
 # Earliest timepoint to plot in the full time series
 FIRST_TIMEPOINT <- as_date("2020-04-08")
@@ -34,8 +43,8 @@ generate_plot_id <- function(var) {
 # The code wouldn't generate a different plot in the loop
 # unless the renderPlot() call was refactored outside of the 
 # reactive context
-create_plot_div <- function(data, var, daterange) {
-    plt <- plot_data_var(data, var, daterange)
+create_plot_div <- function(data, var, daterange, display_x_labels=FALSE) {
+    plt <- plot_data_var(data, var, daterange, display_x_labels=display_x_labels)
     if (is.null(plt)) {
         renderUI(p(sprintf("Error: cannot display plot for %s.", var),
                       class="missing_data_text"))
@@ -47,8 +56,8 @@ create_plot_div <- function(data, var, daterange) {
 # As with create_plot_div, this functionality needs to be separate from
 # the code used to actually generate the plot, else plots
 # won't be rendered correctly
-create_nox_plot_div <- function(data, var, daterange) {
-    plt <- plot_data_var(data, var, daterange)
+create_nox_plot_div <- function(data, var, daterange, display_x_labels=FALSE) {
+    plt <- plot_data_var(data, var, daterange, display_x_labels=display_x_labels)
     if (is.null(plt)) {
         renderUI(p(sprintf("Error: cannot display plot for %s.", var),
                       class="missing_data_text"))
@@ -77,7 +86,7 @@ create_windrose_div <- function(data) {
 }
     
 
-plot_data_var <- function(data, var, daterange) {
+plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
     if (daterange == 'week') {
         x_axis_break <- '1 day'
         x_axis_minor_break <- '12 hours'
@@ -123,7 +132,7 @@ plot_data_var <- function(data, var, daterange) {
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
             theme_bw() +
-            labs(y=ylabel, title=var) +
+            labs(y=ylabel) +
             theme(axis.title.x = element_blank(),
                   panel.background = element_rect(fill = "transparent", color=NA), # bg of the panel
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
@@ -131,11 +140,18 @@ plot_data_var <- function(data, var, daterange) {
                   panel.grid.minor.x = minor_x_gridline,
                   panel.grid.major.x = element_blank(),
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
-                  axis.text.x = element_text(size=12),#, angle=45, hjust=1),
+                  axis.text.x = element_text(size=12),
                   axis.text.y = element_text(size=12),
                   axis.title.y = element_text(size=13, margin=margin(r=10)),
                   panel.spacing.y = unit(1.5, "lines")
                  )
+            if (!display_x_labels) {
+                plt <- plt + theme(
+                  axis.ticks.x = element_blank(),
+                  axis.text.x = element_blank(),
+                )
+            }
+    
     plt
 }
 
@@ -162,22 +178,9 @@ server <- function(input, output) {
     all_measurands <- unique(df$measurand)
     previous_plotted <- all_measurands
     
-    # When a measurand checkbox is checked or unchecked, 
-    # toggle the corresponding plot div
-    observeEvent(input$measurandscheckbox, {
-        selected <- input$measurandscheckbox
-        differences <- c(setdiff(selected, previous_plotted),
-                         setdiff(previous_plotted, selected))
-        
-        for (var in differences) {
-            toggleElement(generate_plot_id(var))
-        }
-        previous_plotted <<- selected
-    }, ignoreNULL = F)
-    
     # Plot UI element has reactive dependency only on the date range.
     # When the date range is changed, all the measurand plots are created
-    output$plotui <- renderUI({
+    output$aqbox <- renderUI({
         output_tags <- tagList()
         
         req(input$daterange)
@@ -194,7 +197,7 @@ server <- function(input, output) {
             div_name <- generate_plot_id(var)
             plt_tag <- div(id=div_name, 
                            create_plot_div(data[ measurand == var ], var, input$daterange),
-                           style="padding-bottom: 20px;")
+                           style="padding-bottom: 0px;")
             
             if (!var %in% previous_plotted) {
                 plt_tag <- hidden(plt_tag)
@@ -206,20 +209,42 @@ server <- function(input, output) {
         div_name <- generate_plot_id("NOx_combined")
         # TODO more efficient way of doing this %in%? maybe join?
         plt_tag <- div(id=div_name, 
-                       create_nox_plot_div(data[ measurand %in% NOX_VARS ], "NOx", input$daterange),
-                       style="padding-bottom: 20px;")
+                       create_nox_plot_div(data[ measurand %in% NOX_VARS ], "NOx", input$daterange,
+                                           display_x_labels = TRUE),
+                       style="padding-bottom: 0px;")
         
         if (!var %in% previous_plotted) {
             plt_tag <- hidden(plt_tag)
         }
         output_tags <- tagAppendChild(output_tags, plt_tag)
         
+       output_tags
+    })
+    
+    output$metbox <- renderUI({
+        output_tags <- tagList()
+        
+        req(input$daterange)
+        if (input$daterange == 'week') {
+            data <- df[ timestamp >= week_ago() ]
+        } else if (input$daterange == 'all') {
+            data <- df
+        } else {
+            return(NULL)
+        }
+        
         # Met values
         for (var in MET_TIME_SERIES_VARS) {
             div_name <- generate_plot_id(var)
+            if (var == "Wind speed") {
+                x_labs <- TRUE
+            } else {
+                x_labs <- FALSE
+            }
             plt_tag <- div(id=div_name, 
-                           create_plot_div(data[ measurand == var ], var, input$daterange),
-                           style="padding-bottom: 20px;")
+                           create_plot_div(data[ measurand == var ], var, input$daterange,
+                                           display_x_labels = x_labs),
+                           style="padding-bottom: 0px;")
             
             if (!var %in% previous_plotted) {
                 plt_tag <- hidden(plt_tag)
@@ -228,15 +253,13 @@ server <- function(input, output) {
         }
         
         # Wind rose
-        # TODO Cast dataframe to wide
         wind_df <- dcast(data[ grepl("Wind", measurand) ], timestamp ~ measurand)
         setnames(wind_df, old=c('timestamp', 'Wind direction', 'Wind speed'), new=c('timestamp', 'wd', 'ws'))
-        wind_df
         
         div_name <- generate_plot_id("Wind rose")
         plt_tag <- div(id=div_name, 
                        create_windrose_div(wind_df),
-                       style="padding-bottom: 20px;")
+                       style="padding-bottom: 0px;")
         output_tags <- tagAppendChild(output_tags, plt_tag)
         
        output_tags
