@@ -11,7 +11,7 @@ DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 # Variables are grouped into 4: 
 # AQ Time series, Met Time series, Nox combined time series, and wind rose
-AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4', 'O3')
+AQ_TIME_SERIES_VARS <- c('O3', 'CO', 'CO2', 'CH4')
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
 
@@ -189,18 +189,17 @@ server <- function(input, output) {
             return(NULL)
         }
         
-        # Straight forward time series
-        for (var in AQ_TIME_SERIES_VARS) {
-            div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, 
-                           create_plot_div(data[ measurand == var ], var, input$daterange),
-                           style="padding-bottom: 20px;")
-            
-            if (!var %in% previous_plotted) {
-                plt_tag <- hidden(plt_tag)
-            }
-            output_tags <- tagAppendChild(output_tags, plt_tag)
+        # O3 first
+        var <- 'O3'
+        div_name <- generate_plot_id(var)
+        plt_tag <- div(id=div_name, 
+                       create_plot_div(data[ measurand == var ], var, input$daterange),
+                       style="padding-bottom: 20px;")
+        
+        if (!var %in% previous_plotted) {
+            plt_tag <- hidden(plt_tag)
         }
+        output_tags <- tagAppendChild(output_tags, plt_tag)
         
         # Combined NOx plot
         div_name <- generate_plot_id("NOx_combined")
@@ -213,6 +212,19 @@ server <- function(input, output) {
             plt_tag <- hidden(plt_tag)
         }
         output_tags <- tagAppendChild(output_tags, plt_tag)
+        
+        # Straight forward time series
+        for (var in AQ_TIME_SERIES_VARS) {
+            div_name <- generate_plot_id(var)
+            plt_tag <- div(id=div_name, 
+                           create_plot_div(data[ measurand == var ], var, input$daterange),
+                           style="padding-bottom: 20px;")
+            
+            if (!var %in% previous_plotted) {
+                plt_tag <- hidden(plt_tag)
+            }
+            output_tags <- tagAppendChild(output_tags, plt_tag)
+        }
         
         # Met values
         for (var in MET_TIME_SERIES_VARS) {
