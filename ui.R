@@ -3,6 +3,8 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
+PLOT_HEIGHT <- 130
+
 # Replaces the script used in shinycssloaders::withSpinner with our edited version
 modified_spinner <- function(input_tags) {
     input_tags[[2]] <- tags$script(src="spinner_modified.js")
@@ -33,49 +35,44 @@ body <- dashboardBody(
     useShinyjs(),
     tabItems(
         tabItem(tabName = "dashboard",
-                div(
-                    id="loading_page",
-                        h1("Loading data...", align="center")
-                ),
                 hidden(
 
                     div(id="missing_data",
                         uiOutput("missing_data_text")
                         )
                 ),
-                hidden(
-                    div(
-                        id="main_content",
-                        fluidRow(
-                                radioButtons(
-                                    "daterange",
-                                    "Date range",
-                                    c("Previous week" = "week",
-                                      "All time" = "all"),
-                                    inline=TRUE,
-                                    width="100%",
-                                ),
-                            align="center"
-                        ),
-                        # Point the spinner JS at our modified version that correctly
-                        # doesn't stop spinning before the plots are loaded
+                div(
+                    id="main_content",
+                    fluidRow(
+                            radioButtons(
+                                "daterange",
+                                "Date range",
+                                c("Previous week" = "week",
+                                  "All time" = "all"),
+                                inline=TRUE,
+                                width="100%",
+                            ),
+                        align="center"
+                    ),
+                    # Point the spinner JS at our modified version that correctly
+                    # doesn't stop spinning before the plots are loaded
+                    fluidRow(
                         box(
-                            modified_spinner(withSpinner(uiOutput("aqbox", height="800px"),
-                                                         color = "#28a745")),
+                            withSpinner(plotOutput("aqbox", height=5*PLOT_HEIGHT),
+                                        color = "#28a745"),
                             solidHeader = TRUE,
                             title="Air Quality",
                             status="success",
-                            height="800px",
                         ),
                         box(
-                            modified_spinner(withSpinner(uiOutput("metbox",
-                                                                  height="800px"),
-                                                         color = "#28a745")),
+                            withSpinner(plotOutput("metbox", height=3*PLOT_HEIGHT),
+                                        color = "#28a745"),
+                            withSpinner(plotOutput("windrose", height=2*PLOT_HEIGHT),
+                                        color = "#28a745"),
                             solidHeader = TRUE,
                             title="Meteorological",
                             status="primary",
-                            height="800px",
-                        ),
+                        )
                     )
                 )
         ),
