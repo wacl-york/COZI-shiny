@@ -12,6 +12,7 @@ DATA_FN <- "/mnt/shiny/cozi/data.csv"
 # Variables are grouped into 4: 
 # AQ Time series, Met Time series, Nox combined time series, and wind rose
 AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4')
+
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
 
@@ -138,7 +139,6 @@ server <- function(input, output) {
         } else {
             return(NULL)
         }
-        
         data
     })
     
@@ -149,6 +149,7 @@ server <- function(input, output) {
         plots <- list()
         # Ozone first
         plots[['O3']] <- plot_data_var(data[ measurand == 'O3' ], 'O3', input$daterange)
+
         # Combined NOx plot
         plots[["NOx"]] <- plot_NOx(data[ measurand %in% NOX_VARS ], "NOx", input$daterange)
         # Remaining 3 plots. Removed loop as would be less readable to have it in with the exception for x-labels on last plot
