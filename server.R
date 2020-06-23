@@ -48,7 +48,13 @@ plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
         x_axis_label_fmt <- "%d %b %Y"
         minor_x_gridline <- element_blank()
         earliest_date <- FIRST_TIMEPOINT
-    } 
+    } else if (daterange == '2 days') {
+        x_axis_break <- '1 day'
+        x_axis_minor_break <- '12 hours'
+        x_axis_label_fmt <- "%d %b %H:%S"
+        minor_x_gridline <- element_line(colour='black', size=0.05)
+        earliest_date <- as_date(now(tzone="UTC") - days(1))
+    }
         
     ylabel <- sprintf("%s (%s)", var, unique(data$unit))
     
@@ -166,7 +172,11 @@ server <- function(input, output) {
             } else {
                 x_labs <- FALSE
             }
-            plots[[var]] <- plot_data_var(data[ measurand == var ], var, input$daterange,
+            input_dr <- input$daterange
+            if (input_dr == 'week') {
+                input_dr <- "2 days"
+            }
+            plots[[var]] <- plot_data_var(data[ measurand == var ], var, input_dr,
                                           display_x_labels = x_labs)
         }
         grobs <- lapply(plots, ggplotGrob)

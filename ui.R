@@ -3,7 +3,7 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
-PLOT_HEIGHT <- 130
+PLOT_HEIGHT <- 160
 
 # Replaces the script used in shinycssloaders::withSpinner with our edited version
 modified_spinner <- function(input_tags) {
@@ -61,6 +61,7 @@ body <- dashboardBody(
                             withSpinner(plotOutput("aqbox", height=5*PLOT_HEIGHT),
                                         color = "#28a745"),
                             solidHeader = TRUE,
+                            width=8,
                             title="Air Quality",
                             status="success",
                         ),
@@ -70,6 +71,7 @@ body <- dashboardBody(
                             withSpinner(plotOutput("windrose", height=2*PLOT_HEIGHT),
                                         color = "#28a745"),
                             solidHeader = TRUE,
+                            width=4,
                             title="Meteorological",
                             status="primary",
                         )
