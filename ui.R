@@ -3,8 +3,7 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 
-checkbox_labels <- c('CO', 'CO2', 'CH4', 'O3', 'NOx', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
-checkbox_values <- c('CO', 'CO2', 'CH4', 'O3', 'NOx_combined', 'Temperature', 'Relative humidity', 'Wind speed', 'Wind rose')
+PLOT_HEIGHT <- 160
 
 # Replaces the script used in shinycssloaders::withSpinner with our edited version
 modified_spinner <- function(input_tags) {
@@ -36,43 +35,46 @@ body <- dashboardBody(
     useShinyjs(),
     tabItems(
         tabItem(tabName = "dashboard",
-                div(
-                    id="loading_page",
-                        h1("Loading data...", align="center")
-                ),
                 hidden(
 
                     div(id="missing_data",
                         uiOutput("missing_data_text")
                         )
                 ),
-                hidden(
-                    div(
-                        id="main_content",
-                        fluidRow(
-                                radioButtons(
-                                    "daterange",
-                                    "Date range",
-                                    c("Previous week" = "week",
-                                      "All time" = "all"),
-                                    inline=TRUE,
-                                    width="100%",
-                                ),
-                            align="center"
+                div(
+                    id="main_content",
+                    fluidRow(
+                            radioButtons(
+                                "daterange",
+                                "Date range",
+                                c("Previous week" = "week",
+                                  "All time" = "all"),
+                                inline=TRUE,
+                                width="100%",
+                            ),
+                        align="center"
+                    ),
+                    # Point the spinner JS at our modified version that correctly
+                    # doesn't stop spinning before the plots are loaded
+                    fluidRow(
+                        box(
+                            withSpinner(plotOutput("aqbox", height=5*PLOT_HEIGHT),
+                                        color = "#28a745"),
+                            solidHeader = TRUE,
+                            width=8,
+                            title="Air Quality",
+                            status="success",
                         ),
-                        fluidRow(
-                            checkboxGroupInput("measurandscheckbox",
-                                               "Charts to display",
-                                               choiceNames=checkbox_labels,
-                                               choiceValues=checkbox_values,
-                                               selected=checkbox_values,
-                                               inline=TRUE),
-                            align="center",
-                        ),
-                        # Point the spinner JS at our modified version that correctly
-                        # doesn't stop spinning before the plots are loaded
-                        modified_spinner(withSpinner(uiOutput("plotui"),
-                                                     color = "#28a745"))
+                        box(
+                            withSpinner(plotOutput("metbox", height=3*PLOT_HEIGHT),
+                                        color = "#28a745"),
+                            withSpinner(plotOutput("windrose", height=2*PLOT_HEIGHT),
+                                        color = "#28a745"),
+                            solidHeader = TRUE,
+                            width=4,
+                            title="Meteorological",
+                            status="primary",
+                        )
                     )
                 )
         ),

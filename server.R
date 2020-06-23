@@ -2,21 +2,19 @@ library(shiny)
 library(shinyjs)
 library(ggplot2)
 library(lubridate)
-library(gridExtra)
 library(data.table)
 library(openair)
+library(cowplot)
 
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 # Variables are grouped into 4: 
 # AQ Time series, Met Time series, Nox combined time series, and wind rose
-AQ_TIME_SERIES_VARS <- c('O3', 'CO', 'CO2', 'CH4')
+AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4')
+
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
-
-# Height of each individual plot in px
-FACET_HEIGHT = 170
 
 # Earliest timepoint to plot in the full time series
 FIRST_TIMEPOINT <- as_date("2020-04-08")
@@ -26,58 +24,19 @@ week_ago <- function() {
     as_date(now(tzone="UTC") - days(7))
 }
 
-generate_plot_id <- function(var) {
-    sprintf("plot_%s", gsub("\ .*", "", var))
+plot_NOx <- function(data, var, daterange, display_x_labels=FALSE) {
+    plt <- plot_data_var(data, var, daterange, display_x_labels=display_x_labels)
+    plt$layers[[2]] <- NULL
+    plt <- plt + 
+        geom_line(aes(x=timestamp, y=value, colour=measurand), na.rm=TRUE) +
+        scale_colour_brewer("", palette = "Dark2") +
+        theme(legend.background = element_rect(fill = "transparent", color=NA),
+              legend.key = element_rect(fill = "transparent", color=NA),
+              legend.position=c(0.90, 0.85),
+              legend.text = element_text(size=10)) 
 }
 
-# Creates the div containing the plot.
-# The code wouldn't generate a different plot in the loop
-# unless the renderPlot() call was refactored outside of the 
-# reactive context
-create_plot_div <- function(data, var, daterange) {
-    plt <- plot_data_var(data, var, daterange)
-    if (is.null(plt)) {
-        renderUI(p(sprintf("Error: cannot display plot for %s.", var),
-                      class="missing_data_text"))
-    } else {
-        renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
-    }
-}
-
-# As with create_plot_div, this functionality needs to be separate from
-# the code used to actually generate the plot, else plots
-# won't be rendered correctly
-create_nox_plot_div <- function(data, var, daterange) {
-    plt <- plot_data_var(data, var, daterange)
-    if (is.null(plt)) {
-        renderUI(p(sprintf("Error: cannot display plot for %s.", var),
-                      class="missing_data_text"))
-    } else {
-        plt$layers[[2]] <- NULL
-        plt <- plt + 
-            geom_line(aes(x=timestamp, y=value, colour=measurand), na.rm=TRUE) +
-            scale_colour_brewer("", palette = "Dark2") +
-            theme(legend.background = element_rect(fill = "transparent", color=NA),
-                  legend.key = element_rect(fill = "transparent", color=NA),
-                  legend.position=c(0.95, 0.85),
-                  legend.text = element_text(size=10)) 
-        renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
-    }
-}
-
-# won't be rendered correctly
-create_windrose_div <- function(data) {
-    plt <- windRose(data)
-    if (is.null(plt$plot)) {
-        renderUI(p(sprintf("Error: cannot display plot for %s.", var),
-                      class="missing_data_text"))
-    } else {
-        renderPlot(plt$plot, bg="transparent", height=FACET_HEIGHT*2)
-    }
-}
-    
-
-plot_data_var <- function(data, var, daterange) {
+plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
     if (daterange == 'week') {
         x_axis_break <- '1 day'
         x_axis_minor_break <- '12 hours'
@@ -90,7 +49,13 @@ plot_data_var <- function(data, var, daterange) {
         x_axis_label_fmt <- "%d %b %Y"
         minor_x_gridline <- element_blank()
         earliest_date <- FIRST_TIMEPOINT
-    } 
+    } else if (daterange == '2 days') {
+        x_axis_break <- '1 day'
+        x_axis_minor_break <- '12 hours'
+        x_axis_label_fmt <- "%d %b %H:%S"
+        minor_x_gridline <- element_line(colour='black', size=0.05)
+        earliest_date <- as_date(now(tzone="UTC") - days(1))
+    }
         
     ylabel <- sprintf("%s (%s)", var, unique(data$unit))
     
@@ -123,7 +88,7 @@ plot_data_var <- function(data, var, daterange) {
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
             theme_bw() +
-            labs(y=ylabel, title=var) +
+            labs(y=ylabel) +
             theme(axis.title.x = element_blank(),
                   panel.background = element_rect(fill = "transparent", color=NA), # bg of the panel
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
@@ -131,11 +96,18 @@ plot_data_var <- function(data, var, daterange) {
                   panel.grid.minor.x = minor_x_gridline,
                   panel.grid.major.x = element_blank(),
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
-                  axis.text.x = element_text(size=12),#, angle=45, hjust=1),
+                  axis.text.x = element_text(size=12, angle=45, hjust=1),
                   axis.text.y = element_text(size=12),
                   axis.title.y = element_text(size=13, margin=margin(r=10)),
                   panel.spacing.y = unit(1.5, "lines")
                  )
+            if (!display_x_labels) {
+                plt <- plt + theme(
+                  axis.ticks.x = element_blank(),
+                  axis.text.x = element_blank(),
+                )
+            }
+    
     plt
 }
 
@@ -147,7 +119,7 @@ server <- function(input, output) {
     })
     
     if (!file.exists(DATA_FN)) {
-        shinyjs::hide("loading_page")
+        shinyjs::hide("main_content")
         shinyjs::show("missing_data")
         return(NULL)
     }
@@ -158,28 +130,7 @@ server <- function(input, output) {
     df[, c("measurand", "unit") := tstrsplit(measurand, "\ (", fixed=TRUE)]
     df[, unit := gsub(")", "", unit)]
     
-    # TODO Turn this into previous_plotted = sapply(get_div_id, c(TIME_SERIES_VARS, NOx, WindRose))
-    all_measurands <- unique(df$measurand)
-    previous_plotted <- all_measurands
-    
-    # When a measurand checkbox is checked or unchecked, 
-    # toggle the corresponding plot div
-    observeEvent(input$measurandscheckbox, {
-        selected <- input$measurandscheckbox
-        differences <- c(setdiff(selected, previous_plotted),
-                         setdiff(previous_plotted, selected))
-        
-        for (var in differences) {
-            toggleElement(generate_plot_id(var))
-        }
-        previous_plotted <<- selected
-    }, ignoreNULL = F)
-    
-    # Plot UI element has reactive dependency only on the date range.
-    # When the date range is changed, all the measurand plots are created
-    output$plotui <- renderUI({
-        output_tags <- tagList()
-        
+    data_to_plot <- reactive({
         req(input$daterange)
         if (input$daterange == 'week') {
             data <- df[ timestamp >= week_ago() ]
@@ -188,74 +139,59 @@ server <- function(input, output) {
         } else {
             return(NULL)
         }
-        
-        # O3 first
-        var <- 'O3'
-        div_name <- generate_plot_id(var)
-        plt_tag <- div(id=div_name, 
-                       create_plot_div(data[ measurand == var ], var, input$daterange),
-                       style="padding-bottom: 20px;")
-        
-        if (!var %in% previous_plotted) {
-            plt_tag <- hidden(plt_tag)
-        }
-        output_tags <- tagAppendChild(output_tags, plt_tag)
-        
-        # Combined NOx plot
-        div_name <- generate_plot_id("NOx_combined")
-        # TODO more efficient way of doing this %in%? maybe join?
-        plt_tag <- div(id=div_name, 
-                       create_nox_plot_div(data[ measurand %in% NOX_VARS ], "NOx", input$daterange),
-                       style="padding-bottom: 20px;")
-        
-        if (!var %in% previous_plotted) {
-            plt_tag <- hidden(plt_tag)
-        }
-        output_tags <- tagAppendChild(output_tags, plt_tag)
-        
-        # Straight forward time series
-        for (var in AQ_TIME_SERIES_VARS) {
-            div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, 
-                           create_plot_div(data[ measurand == var ], var, input$daterange),
-                           style="padding-bottom: 20px;")
-            
-            if (!var %in% previous_plotted) {
-                plt_tag <- hidden(plt_tag)
-            }
-            output_tags <- tagAppendChild(output_tags, plt_tag)
-        }
-        
-        # Met values
-        for (var in MET_TIME_SERIES_VARS) {
-            div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, 
-                           create_plot_div(data[ measurand == var ], var, input$daterange),
-                           style="padding-bottom: 20px;")
-            
-            if (!var %in% previous_plotted) {
-                plt_tag <- hidden(plt_tag)
-            }
-            output_tags <- tagAppendChild(output_tags, plt_tag)
-        }
-        
-        # Wind rose
-        # TODO Cast dataframe to wide
-        wind_df <- dcast(data[ grepl("Wind", measurand) ], timestamp ~ measurand)
-        setnames(wind_df, old=c('timestamp', 'Wind direction', 'Wind speed'), new=c('timestamp', 'wd', 'ws'))
-        wind_df
-        
-        div_name <- generate_plot_id("Wind rose")
-        plt_tag <- div(id=div_name, 
-                       create_windrose_div(wind_df),
-                       style="padding-bottom: 20px;")
-        output_tags <- tagAppendChild(output_tags, plt_tag)
-        
-       output_tags
+        data
     })
     
-    # Data has loaded
-    shinyjs::hide("loading_page")
-    shinyjs::show("main_content")
+    # Plot UI element has reactive dependency only on the date range.
+    # When the date range is changed, all the measurand plots are created
+    output$aqbox <- renderPlot({
+        data <- data_to_plot()
+        plots <- list()
+        # Ozone first
+        plots[['O3']] <- plot_data_var(data[ measurand == 'O3' ], 'O3', input$daterange)
+
+        # Combined NOx plot
+        plots[["NOx"]] <- plot_NOx(data[ measurand %in% NOX_VARS ], "NOx", input$daterange)
+        # Remaining 3 plots. Removed loop as would be less readable to have it in with the exception for x-labels on last plot
+        plots[['CO']] <- plot_data_var(data[ measurand == 'CO' ], 'CO', input$daterange)
+        plots[['CO2']] <- plot_data_var(data[ measurand == 'CO2' ], 'CO2', input$daterange)
+        plots[['CH4']] <- plot_data_var(data[ measurand == 'CH4' ], 'CH4', input$daterange, display_x_labels = TRUE)
+        
+        grobs <- lapply(plots, ggplotGrob)
+        # Ugly to have to pass in individual elements, but can't get rbind to work with a list and the size argument
+        g <- rbind(grobs[[1]], grobs[[2]], grobs[[3]], grobs[[4]], grobs[[5]], size="first")
+        grid.draw(g)
+    })
+    
+    output$metbox <- renderPlot({
+        data <- data_to_plot()
+        plots <- list()
+        # Met values
+        for (var in MET_TIME_SERIES_VARS) {
+            if (var == "Wind speed") {
+                x_labs <- TRUE
+            } else {
+                x_labs <- FALSE
+            }
+            input_dr <- input$daterange
+            if (input_dr == 'week') {
+                input_dr <- "2 days"
+            }
+            plots[[var]] <- plot_data_var(data[ measurand == var ], var, input_dr,
+                                          display_x_labels = x_labs)
+        }
+        grobs <- lapply(plots, ggplotGrob)
+        # Ugly to have to pass in individual elements, but can't get rbind to work with a list and the size argument
+        g <- rbind(grobs[[1]], grobs[[2]], grobs[[3]], size="first")
+        grid.draw(g)
+    })
+    
+    output$windrose <- renderPlot({
+        data <- data_to_plot()
+        plots <- list()
+        wind_df <- dcast(data[ grepl("Wind", measurand) ], timestamp ~ measurand)
+        setnames(wind_df, old=c('timestamp', 'Wind direction', 'Wind speed'), new=c('timestamp', 'wd', 'ws'))
+        windRose(wind_df)$plot
+    })
     
 }
