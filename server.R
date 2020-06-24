@@ -11,9 +11,6 @@ library(grid)
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 # Variables are grouped into 4: 
-# AQ Time series, Met Time series, Nox combined time series, and wind rose
-AQ_TIME_SERIES_VARS <- c('CO', 'CO2', 'CH4')
-
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2', 'NOx')
 
@@ -112,6 +109,36 @@ plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
     plt
 }
 
+deg2rad <- function(deg) {(deg * pi) / (180)}
+
+plot_windrose <- function(d, var, breaks = 16, nbin = 5, group = NULL){
+    # Form bins
+    d[, var_bin := cut(get(var), nbin) ]
+    d[, var_bin := factor(var_bin, levels=rev(levels(var_bin)), 
+                          labels=gsub(",", ", ", rev(levels(var_bin))))]
+    
+    ggplot(d, aes(x=`Wind direction`, fill=var_bin)) +
+        geom_bar(colour='#333333', na.rm=TRUE) +
+        coord_polar(start = deg2rad(360/(2*breaks))) +
+        scale_x_continuous(breaks = c(90,180,270,360),
+                           limits = c(0+(360/(2*breaks)),360+(360/(2*breaks))),
+                           labels = c("    E","\nS","W    ","N\n")) +
+        scale_fill_brewer(var, palette = "Dark2") +
+        theme(
+              panel.background = element_rect(fill = "transparent", color=NA),
+              plot.background = element_rect(fill = "transparent", color = NA),
+              legend.background = element_rect(fill="transparent", color=NA),
+              panel.grid.major = element_line(colour = "#333333"),
+              panel.grid.minor = element_line(colour = "#333333"),
+              axis.ticks.y = element_blank(),
+              axis.text.y = element_blank(),
+              axis.text.x = element_text(colour = "black", size = 13, hjust=0),
+              legend.title = element_text(colour = "black", size = 13, hjust=0),
+              legend.text = element_text(colour = "black", size = 12, hjust=0),
+              axis.title = element_blank()
+        )
+}
+
 
 server <- function(input, output) {
 
@@ -128,6 +155,11 @@ server <- function(input, output) {
     # Load raw data and all available measurands
     df <- fread(DATA_FN)
     df[, timestamp := as_datetime(timestamp)]
+    # Round timestamps to nearest minute and take mean if have multiple per minute.
+    # Helps when cross-referencing met and aq data which are logged at different intervals
+    df[, timestamp := round_date(timestamp, unit='minute')]
+    df <- df[, .(value = mean(value)), by=.(timestamp, measurand)]
+    
     df[, c("measurand", "unit") := tstrsplit(measurand, "\ (", fixed=TRUE)]
     df[, unit := gsub(")", "", unit)]
     
@@ -189,10 +221,19 @@ server <- function(input, output) {
     
     output$windrose <- renderPlot({
         data <- data_to_plot()
-        plots <- list()
-        wind_df <- dcast(data[ grepl("Wind", measurand) ], timestamp ~ measurand)
-        setnames(wind_df, old=c('timestamp', 'Wind direction', 'Wind speed'), new=c('timestamp', 'wd', 'ws'))
-        windRose(wind_df)$plot
+        req(input$windrosecheckbox)
+        var <- input$windrosecheckbox
+        casted <- dcast(data[ measurand %in% c(var, 'Wind direction') ], timestamp ~ measurand)
+        plot_windrose(casted, var)
+        
+    })
+    
+    ####### Spatial page
+    output$leaflet <- renderLeaflet({
+        m <- leaflet()
+        m <- addTiles(m)
+        m <- addMarkers(m, lat=53.947736, lng=-1.046247, popup="COZI location")
+        m
     })
     
 }

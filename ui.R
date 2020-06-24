@@ -2,6 +2,7 @@ library(shiny)
 library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
+library(leaflet)
 
 PLOT_HEIGHT <- 160
 
@@ -10,6 +11,9 @@ modified_spinner <- function(input_tags) {
     input_tags[[2]] <- tags$script(src="spinner_modified.js")
     input_tags
 }
+
+checkbox_vals <-  c('Wind speed', 'O3', 'NOx', 'CO', 'CO2', 'CH4', 'NO', 'NO2')
+checkbox_labels <-  c('Wind rose', 'O3', 'NOx', 'CO', 'CO2', 'CH4', 'NO', 'NO2')
 
 about_text <- "
 <p>
@@ -26,7 +30,8 @@ Meteorological data from the same location is also available on request.
 "
 sidebar <- dashboardSidebar(
     sidebarMenu(
-        menuItem("Live data", tabName = "dashboard", icon = icon("chart-bar")),
+        menuItem("Time series data", tabName = "dashboard", icon = icon("chart-bar")),
+        menuItem("Spatial data", tabName = "spatial", icon = icon("compass")),
         menuItem("About", icon = icon("info"), tabName = "about")
     )
 )
@@ -68,11 +73,53 @@ body <- dashboardBody(
                         box(
                             withSpinner(plotOutput("metbox", height=3*PLOT_HEIGHT),
                                         color = "#28a745"),
-                            withSpinner(plotOutput("windrose", height=2*PLOT_HEIGHT),
-                                        color = "#28a745"),
                             solidHeader = TRUE,
                             width=4,
                             title="Meteorological",
+                            status="primary",
+                        )
+                    )
+                )
+        ),
+        tabItem(tabName = "spatial",
+                div(
+                    id="main_spatial",
+                    fluidRow(
+                            radioButtons(
+                                "daterange_spatial",
+                                "Date range",
+                                c("Previous week" = "week",
+                                  "All time" = "all"),
+                                width="100%",
+                                inline=TRUE,
+                            ),
+                        align="center"
+                    ),
+                    # Point the spinner JS at our modified version that correctly
+                    # doesn't stop spinning before the plots are loaded
+                    fluidRow(
+                        box(
+                            column(
+                                radioButtons("windrosecheckbox",
+                                             "Colour by",
+                                             choiceValues=checkbox_vals,
+                                             choiceNames=checkbox_labels,
+                                             selected="Wind speed",
+                                             inline=TRUE,
+                                             width="100%"),
+                                plotOutput("windrose"),
+                                width=12,
+                            ),
+                            solidHeader = TRUE,
+                            width=8,
+                            title="Air Quality",
+                            status="success",
+                        ),
+                        box(
+                            leafletOutput("leaflet"),
+                            solidHeader = TRUE,
+                            width=4,
+                            title="COZI location",
                             status="primary",
                         )
                     )
