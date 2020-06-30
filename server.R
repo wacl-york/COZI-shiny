@@ -12,7 +12,8 @@ DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 # Variables are grouped into 4: 
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
-NOX_VARS <- c('NO', 'NO2', 'NOx')
+NOX_VARS <- c('NO', 'NO2')
+POLLUTION_ROSE_VARS <- c('Wind speed', 'O3', 'NOx', 'CO', 'CO2', 'CH4', 'NO', 'NO2')
 
 # Earliest timepoint to plot in the full time series
 FIRST_TIMEPOINT <- as_date("2020-04-08")
@@ -22,19 +23,22 @@ week_ago <- function() {
     as_date(now(tzone="UTC") - days(7))
 }
 
-plot_NOx <- function(data, var, daterange, display_x_labels=FALSE) {
-    plt <- plot_data_var(data, var, daterange, display_x_labels=display_x_labels)
+plot_NOx <- function(data, daterange, unit="", display_x_labels=FALSE) {
+    melted <- melt(data, id.vars="timestamp", measure.vars=NOX_VARS)
+    plt <- plot_data_var(melted, 'value', daterange, display_x_labels=display_x_labels, unit=unit)
     plt$layers[[2]] <- NULL
-    plt <- plt + 
-        geom_line(aes(x=timestamp, y=value, colour=measurand), na.rm=TRUE) +
-        scale_colour_brewer("", palette = "Dark2") +
+    
+    plt +
+        ylab(sprintf("%s (%s)", "NOx", unit)) +
+        scale_color_brewer("", palette="Dark2") +
+        geom_line(aes(x=timestamp, y=value, color=variable), na.rm=TRUE) +
         theme(legend.background = element_rect(fill = "transparent", color=NA),
               legend.key = element_rect(fill = "transparent", color=NA),
               legend.position=c(0.90, 0.85),
               legend.text = element_text(size=10)) 
 }
 
-plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
+plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE) {
     if (daterange == 'week') {
         x_axis_break <- '1 day'
         x_axis_minor_break <- '12 hours'
@@ -55,7 +59,11 @@ plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
         earliest_date <- as_date(now(tzone="UTC") - days(1))
     }
         
-    ylabel <- sprintf("%s (%s)", var, unique(data$unit))
+    if (unit != "") {
+        ylabel <- sprintf("%s (%s)", var, unit)
+    } else {
+        ylabel <- var
+    }
     
     # Generate background shading by alternate day
     num_days_plot <- floor(difftime(today(), earliest_date, units = "days")/2)
@@ -69,6 +77,7 @@ plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
                                      ymin=-Inf,
                                      ymax=Inf)
     
+    var <- sym(var)
     plt <- ggplot(data) +
             geom_rect(aes(xmin=start, 
                           xmax=end, 
@@ -78,7 +87,7 @@ plot_data_var <- function(data, var, daterange, display_x_labels=FALSE) {
                       data=background_shading,
                       na.rm=TRUE
                       ) +
-            geom_line(aes(x=timestamp, y=value), na.rm=TRUE) +
+            geom_line(aes(x=timestamp, y=!!var), na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = x_axis_label_fmt,
                              date_minor_breaks = x_axis_minor_break,
@@ -117,7 +126,7 @@ plot_windrose <- function(d, var, breaks = 16, nbin = 5, group = NULL){
     d[, var_bin := factor(var_bin, levels=rev(levels(var_bin)), 
                           labels=gsub(",", ", ", rev(levels(var_bin))))]
     
-    ggplot(d, aes(x=`Wind direction`, fill=var_bin)) +
+    p <- ggplot(d, aes(x=`Wind direction`, fill=var_bin)) +
         geom_bar(colour='#333333', na.rm=TRUE) +
         coord_polar(start = deg2rad(360/(2*breaks))) +
         scale_x_continuous(breaks = c(90,180,270,360),
@@ -137,6 +146,7 @@ plot_windrose <- function(d, var, breaks = 16, nbin = 5, group = NULL){
               legend.text = element_text(colour = "black", size = 12, hjust=0),
               axis.title = element_blank()
         )
+    ggplotGrob(p)
 }
 
 
@@ -158,10 +168,14 @@ server <- function(input, output) {
     # Round timestamps to nearest minute and take mean if have multiple per minute.
     # Helps when cross-referencing met and aq data which are logged at different intervals
     df[, timestamp := round_date(timestamp, unit='minute')]
-    df <- df[, .(value = mean(value)), by=.(timestamp, measurand)]
+    df <- df[, lapply(.SD, mean, na.rm=T), by=timestamp ]
     
-    df[, c("measurand", "unit") := tstrsplit(measurand, "\ (", fixed=TRUE)]
-    df[, unit := gsub(")", "", unit)]
+    # Extract measurement units and store in lookup table
+    raw_measurands <- colnames(df)[2:ncol(df)]
+    measurands_only <- gsub(" \\(.+", "", raw_measurands)
+    units <- gsub(")", "", gsub(".+ \\(", "", raw_measurands))
+    units <- setNames(units, measurands_only)
+    setnames(df, old=raw_measurands, new=measurands_only)
     
     data_to_plot <- reactive({
         req(input$daterange)
@@ -175,57 +189,57 @@ server <- function(input, output) {
         data
     })
     
+    spatial_data_to_plot <- reactive({
+        req(input$daterange_spatial)
+        if (input$daterange_spatial == 'week') {
+            data <- df[ timestamp >= week_ago() ]
+        } else if (input$daterange_spatial == 'all') {
+            data <- df
+        } else {
+            return(NULL)
+        }
+        data
+    })
+    
     # Plot UI element has reactive dependency only on the date range.
     # When the date range is changed, all the measurand plots are created
+    # NB: Shouldn't _really_ need the !is.na(get(var)) subset, as the geom_line()
+    # call has the na.rm=T argument so missing values should be removed.
+    # However, the plots wouldn't display correctly unless I explicitly removed
+    # missing values at this step. It appears the large amount of missingness
+    # caused issues with the plotting rendering
     output$aqbox <- renderPlot({
         data <- data_to_plot()
         plots <- list()
         # Ozone first
-        plots[['O3']] <- plot_data_var(data[ measurand == 'O3' ], 'O3', input$daterange)
+        plots[['O3']] <- plot_data_var(data[ !is.na(O3) ], 'O3', input$daterange, unit=units[['O3']])
 
         # Combined NOx plot
-        plots[["NOx"]] <- plot_NOx(data[ measurand %in% NOX_VARS ], "NOx", input$daterange)
-        # Remaining 3 plots. Removed loop as would be less readable to have it in with the exception for x-labels on last plot
-        plots[['CO']] <- plot_data_var(data[ measurand == 'CO' ], 'CO', input$daterange)
-        plots[['CO2']] <- plot_data_var(data[ measurand == 'CO2' ], 'CO2', input$daterange)
-        plots[['CH4']] <- plot_data_var(data[ measurand == 'CH4' ], 'CH4', input$daterange, display_x_labels = TRUE)
+        plots[["NOx"]] <- plot_NOx(data[ !is.na(NO2) ], input$daterange, unit=units[['NO2']])
+        
+        # Remaining 3 plots. 
+        for (var in c('CO', 'CO2', 'CH4')) {
+            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=units[[var]])
+        }
+        
+        # 3 met time series
+        for (var in MET_TIME_SERIES_VARS) {
+            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=units[[var]], display_x_labels = var == 'Wind speed')
+        }
         
         grobs <- lapply(plots, ggplotGrob)
         # Ugly to have to pass in individual elements, but can't get rbind to work with a list and the size argument
-        g <- rbind(grobs[[1]], grobs[[2]], grobs[[3]], grobs[[4]], grobs[[5]], size="first")
-        grid.draw(g)
-    })
-    
-    output$metbox <- renderPlot({
-        data <- data_to_plot()
-        plots <- list()
-        # Met values
-        for (var in MET_TIME_SERIES_VARS) {
-            if (var == "Wind speed") {
-                x_labs <- TRUE
-            } else {
-                x_labs <- FALSE
-            }
-            input_dr <- input$daterange
-            if (input_dr == 'week') {
-                input_dr <- "2 days"
-            }
-            plots[[var]] <- plot_data_var(data[ measurand == var ], var, input_dr,
-                                          display_x_labels = x_labs)
-        }
-        grobs <- lapply(plots, ggplotGrob)
-        # Ugly to have to pass in individual elements, but can't get rbind to work with a list and the size argument
-        g <- rbind(grobs[[1]], grobs[[2]], grobs[[3]], size="first")
+        g <- rbind(grobs[[1]], grobs[[2]], grobs[[3]], grobs[[4]], grobs[[5]], grobs[[6]], grobs[[7]], grobs[[8]], size="first")
         grid.draw(g)
     })
     
     output$windrose <- renderPlot({
-        data <- data_to_plot()
-        req(input$windrosecheckbox)
-        var <- input$windrosecheckbox
-        casted <- dcast(data[ measurand %in% c(var, 'Wind direction') ], timestamp ~ measurand)
-        plot_windrose(casted, var)
-        
+        data <- spatial_data_to_plot()
+        plots <- list()
+        for (var in POLLUTION_ROSE_VARS) {
+            plots[[var]] <- plot_windrose(data[ !is.na(get(var)) ], var)
+        }
+        plot_grid(plotlist=plots, ncol=4)
     })
     
     ####### Spatial page

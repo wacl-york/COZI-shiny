@@ -4,13 +4,7 @@ library(shinydashboard)
 library(shinycssloaders)
 library(leaflet)
 
-PLOT_HEIGHT <- 160
-
-# Replaces the script used in shinycssloaders::withSpinner with our edited version
-modified_spinner <- function(input_tags) {
-    input_tags[[2]] <- tags$script(src="spinner_modified.js")
-    input_tags
-}
+PLOT_HEIGHT <- 130
 
 checkbox_vals <-  c('Wind speed', 'O3', 'NOx', 'CO', 'CO2', 'CH4', 'NO', 'NO2')
 checkbox_labels <-  c('Wind rose', 'O3', 'NOx', 'CO', 'CO2', 'CH4', 'NO', 'NO2')
@@ -63,21 +57,15 @@ body <- dashboardBody(
                     # doesn't stop spinning before the plots are loaded
                     fluidRow(
                         box(
-                            withSpinner(plotOutput("aqbox", height=5*PLOT_HEIGHT),
-                                        color = "#28a745"),
+                            withSpinner(
+                                plotOutput("aqbox", height=8*PLOT_HEIGHT),
+                                color = "#28a745"
+                            ),
                             solidHeader = TRUE,
-                            width=8,
-                            title="Air Quality",
+                            width=12,
+                            title="Time series",
                             status="success",
                         ),
-                        box(
-                            withSpinner(plotOutput("metbox", height=3*PLOT_HEIGHT),
-                                        color = "#28a745"),
-                            solidHeader = TRUE,
-                            width=4,
-                            title="Meteorological",
-                            status="primary",
-                        )
                     )
                 )
         ),
@@ -99,16 +87,9 @@ body <- dashboardBody(
                     # doesn't stop spinning before the plots are loaded
                     fluidRow(
                         box(
-                            column(
-                                radioButtons("windrosecheckbox",
-                                             "Colour by",
-                                             choiceValues=checkbox_vals,
-                                             choiceNames=checkbox_labels,
-                                             selected="Wind speed",
-                                             inline=TRUE,
-                                             width="100%"),
+                            withSpinner(
                                 plotOutput("windrose"),
-                                width=12,
+                                color = "#28a745"
                             ),
                             solidHeader = TRUE,
                             width=8,
@@ -116,7 +97,9 @@ body <- dashboardBody(
                             status="success",
                         ),
                         box(
-                            leafletOutput("leaflet"),
+                            withSpinner(
+                                leafletOutput("leaflet")
+                            ),
                             solidHeader = TRUE,
                             width=4,
                             title="COZI location",
