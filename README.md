@@ -14,6 +14,7 @@ It requires a modern version of R (it has been tested on 4.0.0 but should work o
   - `lubridate`
   - `ggplot2`
   - `cowplot`
+  - `RColorBrewer`
   
 It also requires the data to be available in the file `/mnt/shiny/cozi/data.csv`, although in future releases this path may be configurable.
   

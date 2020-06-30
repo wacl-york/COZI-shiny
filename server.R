@@ -87,7 +87,9 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                       data=background_shading,
                       na.rm=TRUE
                       ) +
-            geom_line(aes(x=timestamp, y=!!var), na.rm=TRUE) +
+            geom_line(aes(x=timestamp, y=!!var), 
+                      colour=RColorBrewer::brewer.pal(3, "Dark2")[1],
+                      na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = x_axis_label_fmt,
                              date_minor_breaks = x_axis_minor_break,
