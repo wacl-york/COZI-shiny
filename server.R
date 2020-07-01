@@ -13,7 +13,6 @@ DATA_FN <- "/mnt/shiny/cozi/data.csv"
 # Variables are grouped into 4: 
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2')
-POLLUTION_ROSE_VARS <- c('Wind speed', 'O3', 'NOx', 'CO', 'CO2', 'CH4', 'NO', 'NO2')
 
 # Earliest timepoint to plot in the full time series
 FIRST_TIMEPOINT <- as_date("2020-04-08")
@@ -122,13 +121,14 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
 
 deg2rad <- function(deg) {(deg * pi) / (180)}
 
-plot_windrose <- function(d, var, breaks = 16, nbin = 5, group = NULL){
+plot_windrose <- function(d, var, breaks = 16, nbin = 5) {
     # Form bins
     d[, var_bin := cut(get(var), nbin) ]
     d[, var_bin := factor(var_bin, levels=rev(levels(var_bin)), 
                           labels=gsub(",", ", ", rev(levels(var_bin))))]
     
-    p <- ggplot(d, aes(x=`Wind direction`, fill=var_bin)) +
+    var <- sym(var)
+    ggplot(d, aes(x=`Wind direction`, fill=var_bin)) +
         geom_bar(colour='#333333', na.rm=TRUE) +
         coord_polar(start = deg2rad(360/(2*breaks))) +
         scale_x_continuous(breaks = c(90,180,270,360),
@@ -139,8 +139,8 @@ plot_windrose <- function(d, var, breaks = 16, nbin = 5, group = NULL){
               panel.background = element_rect(fill = "transparent", color=NA),
               plot.background = element_rect(fill = "transparent", color = NA),
               legend.background = element_rect(fill="transparent", color=NA),
-              panel.grid.major = element_line(colour = "#333333"),
-              panel.grid.minor = element_line(colour = "#333333"),
+              panel.grid.major = element_line(colour = "#333333", size=0.3),
+              panel.grid.minor = element_line(colour = "#333333", size=0.1),
               axis.ticks.y = element_blank(),
               axis.text.y = element_blank(),
               axis.text.x = element_text(colour = "black", size = 13, hjust=0),
@@ -148,7 +148,6 @@ plot_windrose <- function(d, var, breaks = 16, nbin = 5, group = NULL){
               legend.text = element_text(colour = "black", size = 12, hjust=0),
               axis.title = element_blank()
         )
-    ggplotGrob(p)
 }
 
 
@@ -236,13 +235,18 @@ server <- function(input, output) {
     })
     
     output$windrose <- renderPlot({
+        req(input$windrose_var)
         data <- spatial_data_to_plot()
-        plots <- list()
-        for (var in POLLUTION_ROSE_VARS) {
-            plots[[var]] <- plot_windrose(data[ !is.na(get(var)) ], var)
+        var <- input$windrose_var
+        
+        if (var == 'Wind speed') {
+            windRose(data[ !is.na(get(var)) ], ws="Wind speed", wd="Wind direction")
+        } else {
+            pollutionRose(data[ !is.na(get(var)) ], ws="Wind speed", wd="Wind direction", pollutant=var)
         }
-        plot_grid(plotlist=plots, ncol=4)
+        #plot_windrose(data[ !is.na(get(var)) ], var)
     })
+    
     
     ####### Spatial page
     output$leaflet <- renderLeaflet({
