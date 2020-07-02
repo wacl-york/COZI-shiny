@@ -29,7 +29,7 @@ plot_NOx <- function(data, daterange, unit="", display_x_labels=FALSE) {
     
     plt +
         ylab(sprintf("%s (%s)", "NOx", unit)) +
-        scale_color_brewer("", palette="Dark2") +
+        scale_color_manual("", values=c('black', 'red')) +
         geom_line(aes(x=timestamp, y=value, color=variable), na.rm=TRUE) +
         theme(legend.background = element_rect(fill = "transparent", color=NA),
               legend.key = element_rect(fill = "transparent", color=NA),
@@ -87,7 +87,7 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                       na.rm=TRUE
                       ) +
             geom_line(aes(x=timestamp, y=!!var), 
-                      colour=RColorBrewer::brewer.pal(3, "Dark2")[1],
+                      colour="black",
                       na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
                              date_labels = x_axis_label_fmt,
@@ -153,13 +153,11 @@ plot_windrose <- function(d, var, breaks = 16, nbin = 5) {
 
 server <- function(input, output) {
 
-    output$missing_data_text <- renderUI({
-        h3(sprintf("Error: data file %s could not be found.", DATA_FN), class="missing_data_text")
-    })
-    
     if (!file.exists(DATA_FN)) {
-        shinyjs::hide("main_content")
-        shinyjs::show("missing_data")
+        shinyjs::hide("main_content_timeseries")
+        shinyjs::show("missing_data_timeseries")
+        shinyjs::hide("main_content_spatial")
+        shinyjs::show("missing_data_spatial")
         return(NULL)
     }
     

@@ -31,18 +31,20 @@ sidebar <- dashboardSidebar(
     )
 )
 
+missing_data_msg <- h3("Error: data could not be loaded.", class="missing_data_text")
+
 body <- dashboardBody(
     useShinyjs(),
     tabItems(
         tabItem(tabName = "dashboard",
                 hidden(
                     div(
-                        id="missing_data",
-                        uiOutput("missing_data_text")
+                        id="missing_data_timeseries",
+                        missing_data_msg
                     )
                 ),
                 div(
-                    id="main_content",
+                    id="main_content_timeseries",
                     fluidRow(
                         box(
                             fluidRow(
@@ -69,8 +71,14 @@ body <- dashboardBody(
                 )
         ),
         tabItem(tabName = "spatial",
+                hidden(
+                    div(
+                        id="missing_data_spatial",
+                        missing_data_msg
+                    )
+                ),
                 div(
-                    id="main_spatial",
+                    id="main_content_spatial",
                     fluidRow(
                         box(
                             fluidRow(
