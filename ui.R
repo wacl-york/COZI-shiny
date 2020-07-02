@@ -2,14 +2,13 @@ library(shiny)
 library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
+library(leaflet)
 
-PLOT_HEIGHT <- 160
+PLOT_HEIGHT <- 130
+ROSE_HEIGHT <- 400
 
-# Replaces the script used in shinycssloaders::withSpinner with our edited version
-modified_spinner <- function(input_tags) {
-    input_tags[[2]] <- tags$script(src="spinner_modified.js")
-    input_tags
-}
+checkbox_vals <-  c('Wind speed', 'O3', 'NO', 'NO2', 'CO', 'CO2', 'CH4')
+checkbox_labels <-  c('Wind rose', 'O3', 'NO', 'NO2', 'CO', 'CO2', 'CH4')
 
 about_text <- "
 <p>
@@ -26,53 +25,96 @@ Meteorological data from the same location is also available on request.
 "
 sidebar <- dashboardSidebar(
     sidebarMenu(
-        menuItem("Live data", tabName = "dashboard", icon = icon("chart-bar")),
+        menuItem("Time series data", tabName = "dashboard", icon = icon("chart-bar")),
+        menuItem("Spatial data", tabName = "spatial", icon = icon("compass")),
         menuItem("About", icon = icon("info"), tabName = "about")
     )
 )
+
+missing_data_msg <- h3("Error: data could not be loaded.", class="missing_data_text")
 
 body <- dashboardBody(
     useShinyjs(),
     tabItems(
         tabItem(tabName = "dashboard",
                 hidden(
-
-                    div(id="missing_data",
-                        uiOutput("missing_data_text")
-                        )
+                    div(
+                        id="missing_data_timeseries",
+                        missing_data_msg
+                    )
                 ),
                 div(
-                    id="main_content",
-                    fluidRow(
-                            radioButtons(
-                                "daterange",
-                                "Date range",
-                                c("Previous week" = "week",
-                                  "All time" = "all"),
-                                inline=TRUE,
-                                width="100%",
-                            ),
-                        align="center"
-                    ),
-                    # Point the spinner JS at our modified version that correctly
-                    # doesn't stop spinning before the plots are loaded
+                    id="main_content_timeseries",
                     fluidRow(
                         box(
-                            withSpinner(plotOutput("aqbox", height=5*PLOT_HEIGHT),
-                                        color = "#28a745"),
+                            fluidRow(
+                                radioButtons(
+                                    "daterange",
+                                    "Date range",
+                                    c("Previous week" = "week",
+                                      "All time" = "all"),
+                                    inline=TRUE,
+                                    width="100%",
+                                ),
+                            align="center"
+                            ),
+                            withSpinner(
+                                plotOutput("aqbox", height=8*PLOT_HEIGHT),
+                                color = "#28a745"
+                            ),
                             solidHeader = TRUE,
-                            width=8,
-                            title="Air Quality",
+                            width=12,
+                            title="Time series",
+                            status="success",
+                        ),
+                    )
+                )
+        ),
+        tabItem(tabName = "spatial",
+                hidden(
+                    div(
+                        id="missing_data_spatial",
+                        missing_data_msg
+                    )
+                ),
+                div(
+                    id="main_content_spatial",
+                    fluidRow(
+                        box(
+                            fluidRow(
+                                radioButtons(
+                                    "daterange_spatial",
+                                    "Date range",
+                                    c("Previous week" = "week",
+                                      "All time" = "all"),
+                                    width="100%",
+                                    inline=TRUE,
+                                ),
+                                radioButtons("windrose_var", "Colour by", 
+                                             choiceNames=checkbox_labels,
+                                             choiceValues=checkbox_vals,
+                                             inline = TRUE
+                                ),
+                                align="center"
+                            ),
+                            withSpinner(
+                                plotOutput("windrose",
+                                           height=ROSE_HEIGHT),
+                                color = "#28a745"
+                            ),
+                            solidHeader = TRUE,
+                            width=6,
+                            title="Wind rose",
                             status="success",
                         ),
                         box(
-                            withSpinner(plotOutput("metbox", height=3*PLOT_HEIGHT),
-                                        color = "#28a745"),
-                            withSpinner(plotOutput("windrose", height=2*PLOT_HEIGHT),
-                                        color = "#28a745"),
+                            withSpinner(
+                                    leafletOutput("leaflet",
+                                                  height=525)
+                            ),
                             solidHeader = TRUE,
-                            width=4,
-                            title="Meteorological",
+                            width=6,
+                            title="COZI location",
                             status="primary",
                         )
                     )
