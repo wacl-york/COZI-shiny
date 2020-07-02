@@ -2,6 +2,10 @@ p {
    font-size: medium;
 }
 
+#windrose_var {
+    margin-bottom: 20px;
+}
+
 #loading_page {
     height:100%; 
     width:100%; 
@@ -20,8 +24,42 @@ p {
 
 }
 
-#missing_data_text {
+.missing_data_text {
     text-align: center;
     color: red;
 
+}
+
+
+.main-header {
+    max-height: 80px;
+}
+
+.main-header .logo {
+    padding-top: 15px;
+    height: 80px;
+}
+
+
+.left-side, .main-sidebar #sidebarItemExpanded {
+    padding-top: 50px;
+}
+
+.sidebar-toggle {
+    margin-top: 15px;
+}
+
+/* Change header bar to white background */
+.skin-green .main-header .navbar {
+    background-color: #ffffff;
+}        
+
+.skin-green .main-header .navbar .sidebar-toggle {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+.skin-green .main-header .navbar .sidebar-toggle:hover{
+    background-color: #f6f6f6;
+    color: #000000;
 }

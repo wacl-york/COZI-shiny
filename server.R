@@ -1,171 +1,257 @@
 library(shiny)
 library(shinyjs)
-library(dplyr)
-library(tidyr)
 library(ggplot2)
 library(lubridate)
-library(gridExtra)
+library(data.table)
+library(openair)
+library(cowplot)
+library(grid)
 
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
+# Variables are grouped into 4: 
+MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
+NOX_VARS <- c('NO', 'NO2')
 
-# Height of each individual plot in px
-FACET_HEIGHT = 170
+# Earliest timepoint to plot in the full time series
+FIRST_TIMEPOINT <- as_date("2020-04-08")
 
-generate_plot_id <- function(var) {
-    sprintf("plot_%s", gsub("\ .*", "", var))
+# Calculates date 7 days ago
+week_ago <- function() {
+    as_date(now(tzone="UTC") - days(7))
 }
 
-# Creates the div containing the plot.
-# The code wouldn't generate a different plot in the loop
-# unless the renderPlot() call was refactored outside of the 
-# reactive context
-create_plot_div <- function(data, var, daterange) {
-    plt <- plot_data_var(data, var, daterange)
-    renderPlot(plt, bg="transparent", height=FACET_HEIGHT)
-}
+plot_NOx <- function(data, daterange, unit="", display_x_labels=FALSE) {
+    melted <- melt(data, id.vars="timestamp", measure.vars=NOX_VARS)
+    plt <- plot_data_var(melted, 'value', daterange, display_x_labels=display_x_labels, unit=unit)
+    plt$layers[[2]] <- NULL
     
+    plt +
+        ylab(sprintf("%s (%s)", "NOx", unit)) +
+        scale_color_manual("", values=c('#a0a0a0', 'black')) +
+        geom_line(aes(x=timestamp, y=value, color=variable), na.rm=TRUE) +
+        theme(legend.background = element_rect(fill = "transparent", color=NA),
+              legend.key = element_rect(fill = "transparent", color=NA),
+              legend.position=c(0.90, 0.85),
+              legend.text = element_text(size=10)) 
+}
 
-plot_data_var <- function(data, var, daterange) {
+plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE) {
     if (daterange == 'week') {
         x_axis_break <- '1 day'
         x_axis_minor_break <- '12 hours'
+        x_axis_label_fmt <- "%d %b %H:%S"
+        minor_x_gridline <- element_line(colour='black', size=0.05)
+        earliest_date <- week_ago()
     } else if (daterange == 'all') {
         x_axis_break <- '1 week'
         x_axis_minor_break <- '1 day'
-    } 
-    df_plt <- data %>%
-            filter(measurand == var)
+        x_axis_label_fmt <- "%d %b %Y"
+        minor_x_gridline <- element_blank()
+        earliest_date <- FIRST_TIMEPOINT
+    } else if (daterange == '2 days') {
+        x_axis_break <- '1 day'
+        x_axis_minor_break <- '12 hours'
+        x_axis_label_fmt <- "%d %b %H:%S"
+        minor_x_gridline <- element_line(colour='black', size=0.05)
+        earliest_date <- as_date(now(tzone="UTC") - days(1))
+    }
         
-    ylabel <- paste(var, unique(df_plt$unit), sep=" ")
+    if (unit != "") {
+        ylabel <- sprintf("%s (%s)", var, unit)
+    } else {
+        ylabel <- var
+    }
     
     # Generate background shading by alternate day
-    start_date <- as_date(min(df_plt$timestamp))
-    num_days_plot <- floor(difftime(today(), start_date, units = "days")/2)
+    num_days_plot <- floor(difftime(today(), earliest_date, units = "days")/2)
     shading_start <- POSIXct(num_days_plot+1)
     shading_start[1] <- today()
     for (i in 1:num_days_plot) {
         shading_start[i+1] <- today() - days(i*2)
     }
-    background_shading <- data.frame(start=shading_start) %>%
-        mutate(end = ifelse(start == today(), now(), shading_start + days(1)),
-               start = as_datetime(start),
-               end = as_datetime(end),
-               ymin=-Inf,
-               ymax=Inf)
-               
-    plt <- df_plt %>%
-            ggplot() +
+    background_shading <- data.frame(start=as_datetime(shading_start),
+                                     end = as_datetime(ifelse(shading_start == today(), now(), shading_start + days(1))),
+                                     ymin=-Inf,
+                                     ymax=Inf)
+    
+    var <- sym(var)
+    plt <- ggplot(data) +
             geom_rect(aes(xmin=start, 
                           xmax=end, 
                           ymin=ymin, 
                           ymax=ymax),
                       alpha=0.2,
-                      data=background_shading) +
-            geom_line(aes(x=timestamp, y=value), na.rm=TRUE) +
+                      data=background_shading,
+                      na.rm=TRUE
+                      ) +
+            geom_line(aes(x=timestamp, y=!!var), 
+                      colour="black",
+                      na.rm=TRUE) +
             scale_x_datetime(date_breaks=x_axis_break,
-                             date_labels = "%d %b %Y",
+                             date_labels = x_axis_label_fmt,
                              date_minor_breaks = x_axis_minor_break,
-                             limits=c(as.POSIXct(as_date(min(df_plt$timestamp))),
+                             limits=c(as.POSIXct(earliest_date),
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
             theme_bw() +
-            labs(y=ylabel, title=gsub("\ .*", "", var)) +
+            labs(y=ylabel) +
             theme(axis.title.x = element_blank(),
                   panel.background = element_rect(fill = "transparent", color=NA), # bg of the panel
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
                   panel.grid.major.y = element_line(colour='black', size=0.1),
-                  #panel.grid.minor.x = element_line(colour='black', size=0.05),
+                  panel.grid.minor.x = minor_x_gridline,
                   panel.grid.major.x = element_blank(),
-                  panel.grid.minor.x = element_blank(),
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
-                  axis.text.x = element_text(size=12),#, angle=45, hjust=1),
+                  axis.text.x = element_text(size=12, angle=45, hjust=1),
                   axis.text.y = element_text(size=12),
                   axis.title.y = element_text(size=13, margin=margin(r=10)),
                   panel.spacing.y = unit(1.5, "lines")
                  )
+            if (!display_x_labels) {
+                plt <- plt + theme(
+                  axis.ticks.x = element_blank(),
+                  axis.text.x = element_blank(),
+                )
+            }
+    
     plt
 }
 
+deg2rad <- function(deg) {(deg * pi) / (180)}
+
+plot_windrose <- function(d, var, breaks = 16, nbin = 5) {
+    # Form bins
+    d[, var_bin := cut(get(var), nbin) ]
+    d[, var_bin := factor(var_bin, levels=rev(levels(var_bin)), 
+                          labels=gsub(",", ", ", rev(levels(var_bin))))]
+    
+    var <- sym(var)
+    ggplot(d, aes(x=`Wind direction`, fill=var_bin)) +
+        geom_bar(colour='#333333', na.rm=TRUE) +
+        coord_polar(start = deg2rad(360/(2*breaks))) +
+        scale_x_continuous(breaks = c(90,180,270,360),
+                           limits = c(0+(360/(2*breaks)),360+(360/(2*breaks))),
+                           labels = c("    E","\nS","W    ","N\n")) +
+        scale_fill_brewer(var, palette = "Dark2") +
+        theme(
+              panel.background = element_rect(fill = "transparent", color=NA),
+              plot.background = element_rect(fill = "transparent", color = NA),
+              legend.background = element_rect(fill="transparent", color=NA),
+              panel.grid.major = element_line(colour = "#333333", size=0.3),
+              panel.grid.minor = element_line(colour = "#333333", size=0.1),
+              axis.ticks.y = element_blank(),
+              axis.text.y = element_blank(),
+              axis.text.x = element_text(colour = "black", size = 13, hjust=0),
+              legend.title = element_text(colour = "black", size = 13, hjust=0),
+              legend.text = element_text(colour = "black", size = 12, hjust=0),
+              axis.title = element_blank()
+        )
+}
+
+
 server <- function(input, output) {
 
-    output$missing_data_text <- renderUI({
-        h3(sprintf("Error: data file %s could not be found.", DATA_FN), id="missing_data_text")
-    })
-    
     if (!file.exists(DATA_FN)) {
-        shinyjs::hide("loading_page")
-        shinyjs::show("missing_data")
+        shinyjs::hide("main_content_timeseries")
+        shinyjs::show("missing_data_timeseries")
+        shinyjs::hide("main_content_spatial")
+        shinyjs::show("missing_data_spatial")
         return(NULL)
     }
     
     # Load raw data and all available measurands
-    df <- read.csv(DATA_FN) %>%
-            mutate(timestamp = as_datetime(timestamp)) %>%
-            separate(measurand, c("measurand", "unit"), "\ ")
-    all_measurands <- unique(df$measurand)
-    previous_plotted <- all_measurands
+    df <- fread(DATA_FN)
+    df[, timestamp := as_datetime(timestamp)]
+    # Round timestamps to nearest minute and take mean if have multiple per minute.
+    # Helps when cross-referencing met and aq data which are logged at different intervals
+    df[, timestamp := round_date(timestamp, unit='minute')]
+    df <- df[, lapply(.SD, mean, na.rm=T), by=timestamp ]
     
-    # Create second dataset with last week's data
-    week_ago <- now(tzone="UTC") - days(7)
-    df_week <- df %>%
-        filter(timestamp >= as_datetime(week_ago))
+    # Extract measurement units and store in lookup table
+    raw_measurands <- colnames(df)[2:ncol(df)]
+    measurands_only <- gsub(" \\(.+", "", raw_measurands)
+    units <- gsub(")", "", gsub(".+ \\(", "", raw_measurands))
+    units <- setNames(units, measurands_only)
+    setnames(df, old=raw_measurands, new=measurands_only)
     
-    # When data has loaded can populate the checkbox with the names
-    # of the measurands in the loaded data
-    output$selectmeasurands <- renderUI({
-        checkboxGroupInput("measurandscheckbox",
-                           "Pollutants to display",
-                           choiceNames=all_measurands,
-                           choiceValues=all_measurands,
-                           selected=all_measurands,
-                           inline=TRUE)
-    })
-
-    # When a measurand checkbox is checked or unchecked, 
-    # toggle the corresponding plot div
-    observeEvent(input$measurandscheckbox, {
-        selected <- input$measurandscheckbox
-        differences <- c(setdiff(selected, previous_plotted),
-                         setdiff(previous_plotted, selected))
-        
-        for (var in differences) {
-            toggleElement(generate_plot_id(var))
-        }
-        previous_plotted <<- selected
-    }, ignoreNULL = F)
-    
-    # Plot UI element has reactive dependency only on the date range.
-    # When the date range is changed, all the measurand plots are created
-    output$plotui <- renderUI({
-        output_tags <- tagList()
-        
+    data_to_plot <- reactive({
         req(input$daterange)
         if (input$daterange == 'week') {
-            data <- df_week
+            data <- df[ timestamp >= week_ago() ]
         } else if (input$daterange == 'all') {
             data <- df
         } else {
             return(NULL)
         }
-        
-        for (var in all_measurands) {
-            div_name <- generate_plot_id(var)
-            plt_tag <- div(id=div_name, create_plot_div(data, var, input$daterange),
-                           style="padding-bottom: 20px;")
-            
-            if (!var %in% previous_plotted) {
-                plt_tag <- hidden(plt_tag)
-            }
-            output_tags <- tagAppendChild(output_tags, plt_tag)
-        }
-        
-       output_tags
+        data
     })
     
-    # Data has loaded
-    shinyjs::hide("loading_page")
-    shinyjs::show("main_content")
+    spatial_data_to_plot <- reactive({
+        req(input$daterange_spatial)
+        if (input$daterange_spatial == 'week') {
+            data <- df[ timestamp >= week_ago() ]
+        } else if (input$daterange_spatial == 'all') {
+            data <- df
+        } else {
+            return(NULL)
+        }
+        data
+    })
+    
+    # Plot UI element has reactive dependency only on the date range.
+    # When the date range is changed, all the measurand plots are created
+    # NB: Shouldn't _really_ need the !is.na(get(var)) subset, as the geom_line()
+    # call has the na.rm=T argument so missing values should be removed.
+    # However, the plots wouldn't display correctly unless I explicitly removed
+    # missing values at this step. It appears the large amount of missingness
+    # caused issues with the plotting rendering
+    output$aqbox <- renderPlot({
+        data <- data_to_plot()
+        plots <- list()
+        # Ozone first
+        plots[['O3']] <- plot_data_var(data[ !is.na(O3) ], 'O3', input$daterange, unit=units[['O3']])
+
+        # Combined NOx plot
+        plots[["NOx"]] <- plot_NOx(data[ !is.na(NO2) ], input$daterange, unit=units[['NO2']])
+        
+        # Remaining 3 plots. 
+        for (var in c('CO', 'CO2', 'CH4')) {
+            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=units[[var]])
+        }
+        
+        # 3 met time series
+        for (var in MET_TIME_SERIES_VARS) {
+            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=units[[var]], display_x_labels = var == 'Wind speed')
+        }
+        
+        grobs <- lapply(plots, ggplotGrob)
+        # Ugly to have to pass in individual elements, but can't get rbind to work with a list and the size argument
+        g <- rbind(grobs[[1]], grobs[[2]], grobs[[3]], grobs[[4]], grobs[[5]], grobs[[6]], grobs[[7]], grobs[[8]], size="first")
+        grid.draw(g)
+    })
+    
+    output$windrose <- renderPlot({
+        req(input$windrose_var)
+        data <- spatial_data_to_plot()
+        var <- input$windrose_var
+        
+        if (var == 'Wind speed') {
+            windRose(data[ !is.na(get(var)) ], ws="Wind speed", wd="Wind direction")
+        } else {
+            pollutionRose(data[ !is.na(get(var)) ], ws="Wind speed", wd="Wind direction", pollutant=var)
+        }
+        #plot_windrose(data[ !is.na(get(var)) ], var)
+    })
+    
+    
+    ####### Spatial page
+    output$leaflet <- renderLeaflet({
+        m <- leaflet()
+        m <- addTiles(m)
+        m <- addMarkers(m, lat=53.947736, lng=-1.046247, popup="COZI location")
+        m
+    })
     
 }
