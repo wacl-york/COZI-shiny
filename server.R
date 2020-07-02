@@ -29,7 +29,7 @@ plot_NOx <- function(data, daterange, unit="", display_x_labels=FALSE) {
     
     plt +
         ylab(sprintf("%s (%s)", "NOx", unit)) +
-        scale_color_manual("", values=c('black', 'red')) +
+        scale_color_manual("", values=c('#a0a0a0', 'black')) +
         geom_line(aes(x=timestamp, y=value, color=variable), na.rm=TRUE) +
         theme(legend.background = element_rect(fill = "transparent", color=NA),
               legend.key = element_rect(fill = "transparent", color=NA),

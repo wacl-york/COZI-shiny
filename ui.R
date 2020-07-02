@@ -104,12 +104,13 @@ body <- dashboardBody(
                             ),
                             solidHeader = TRUE,
                             width=6,
-                            title="Meteorological effects",
+                            title="Wind rose",
                             status="success",
                         ),
                         box(
                             withSpinner(
-                                    leafletOutput("leaflet")
+                                    leafletOutput("leaflet",
+                                                  height=525)
                             ),
                             solidHeader = TRUE,
                             width=6,
