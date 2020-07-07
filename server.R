@@ -114,8 +114,8 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                   panel.grid.major.x = element_blank(),
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
                   axis.text.x = element_text(size=12, angle=45, hjust=1),
-                  axis.text.y = element_text(size=12),
-                  axis.title.y = element_text(size=13, margin=margin(r=10)),
+                  axis.text.y = element_text(size=10),
+                  axis.title.y = element_text(size=12, margin=margin(r=10)),
                   panel.spacing.y = unit(1.5, "lines")
                  )
             if (!display_x_labels) {
