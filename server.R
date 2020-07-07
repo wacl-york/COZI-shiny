@@ -10,6 +10,15 @@ library(grid)
 # File where clean data is stored
 DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
+UNITS <- list("O3"="ppbV", 
+              "NOx"="ppbV",
+              "CO"="ppbV",
+              "CO2"="ppmV",
+              "CH4"="ppmV",
+              "Temperature"="°C",
+              "Relative humidity"="%",
+              "Wind speed"="ms¹")
+
 # Variables are grouped into 4: 
 MET_TIME_SERIES_VARS <- c('Temperature', 'Relative humidity', 'Wind speed')
 NOX_VARS <- c('NO', 'NO2')
@@ -169,11 +178,9 @@ server <- function(input, output) {
     df[, timestamp := round_date(timestamp, unit='minute')]
     df <- df[, lapply(.SD, mean, na.rm=T), by=timestamp ]
     
-    # Extract measurement units and store in lookup table
+    # Remove measurement units
     raw_measurands <- colnames(df)[2:ncol(df)]
     measurands_only <- gsub(" \\(.+", "", raw_measurands)
-    units <- gsub(")", "", gsub(".+ \\(", "", raw_measurands))
-    units <- setNames(units, measurands_only)
     setnames(df, old=raw_measurands, new=measurands_only)
     
     data_to_plot <- reactive({
@@ -211,19 +218,19 @@ server <- function(input, output) {
         data <- data_to_plot()
         plots <- list()
         # Ozone first
-        plots[['O3']] <- plot_data_var(data[ !is.na(O3) ], 'O3', input$daterange, unit=units[['O3']])
+        plots[['O3']] <- plot_data_var(data[ !is.na(O3) ], 'O3', input$daterange, unit=UNITS[['O3']])
 
         # Combined NOx plot
-        plots[["NOx"]] <- plot_NOx(data[ !is.na(NO2) ], input$daterange, unit=units[['NO2']])
+        plots[["NOx"]] <- plot_NOx(data[ !is.na(NO2) ], input$daterange, unit=UNITS[['NOx']])
         
         # Remaining 3 plots. 
         for (var in c('CO', 'CO2', 'CH4')) {
-            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=units[[var]])
+            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=UNITS[[var]])
         }
         
         # 3 met time series
         for (var in MET_TIME_SERIES_VARS) {
-            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=units[[var]], display_x_labels = var == 'Wind speed')
+            plots[[var]] <- plot_data_var(data[ !is.na(get(var)) ], var, input$daterange, unit=UNITS[[var]], display_x_labels = var == 'Wind speed')
         }
         
         grobs <- lapply(plots, ggplotGrob)
