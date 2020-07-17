@@ -104,6 +104,7 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                              limits=c(as.POSIXct(earliest_date),
                                       as.POSIXct(now())),
                             expand=c(0,0)) +
+            scale_y_continuous(labels = function(x) round(as.numeric(x), digits=1)) +
             theme_bw() +
             labs(y=ylabel) +
             theme(axis.title.x = element_blank(),
@@ -115,7 +116,7 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
                   axis.text.x = element_text(size=12, angle=45, hjust=1),
                   axis.text.y = element_text(size=10),
-                  axis.title.y = element_text(size=12, margin=margin(r=10)),
+                  axis.title.y = element_text(size=11, margin=margin(r=20)),
                   panel.spacing.y = unit(1.5, "lines")
                  )
             if (!display_x_labels) {
