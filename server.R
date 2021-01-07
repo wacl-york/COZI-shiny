@@ -8,8 +8,7 @@ library(cowplot)
 library(grid)
 
 # File where clean data is stored
-#DATA_FN <- "/mnt/shiny/cozi/data.csv"
-DATA_FN <- "clean.csv"
+DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 UNITS <- list("O3"="ppbV", 
               "NOx"="ppbV",
