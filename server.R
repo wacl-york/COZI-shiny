@@ -8,7 +8,8 @@ library(cowplot)
 library(grid)
 
 # File where clean data is stored
-DATA_FN <- "/mnt/shiny/cozi/data.csv"
+#DATA_FN <- "/mnt/shiny/cozi/data.csv"
+DATA_FN <- "clean.csv"
 
 UNITS <- list("O3"="ppbV", 
               "NOx"="ppbV",
@@ -125,7 +126,6 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                   axis.text.x = element_blank(),
                 )
             }
-    
     plt
 }
 
@@ -174,10 +174,6 @@ server <- function(input, output) {
     # Load raw data and all available measurands
     df <- fread(DATA_FN)
     df[, timestamp := as_datetime(timestamp)]
-    # Round timestamps to nearest minute and take mean if have multiple per minute.
-    # Helps when cross-referencing met and aq data which are logged at different intervals
-    df[, timestamp := round_date(timestamp, unit='minute')]
-    df <- df[, lapply(.SD, mean, na.rm=T), by=timestamp ]
     
     # Remove measurement units
     raw_measurands <- colnames(df)[2:ncol(df)]
@@ -250,7 +246,6 @@ server <- function(input, output) {
         } else {
             pollutionRose(data[ !is.na(get(var)) ], ws="Wind speed", wd="Wind direction", pollutant=var)
         }
-        #plot_windrose(data[ !is.na(get(var)) ], var)
     })
     
     
