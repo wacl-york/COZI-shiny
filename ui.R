@@ -3,11 +3,12 @@ library(shinyjs)
 library(shinydashboard)
 library(shinycssloaders)
 library(leaflet)
+library(plotly)
 
 PLOT_HEIGHT <- 130
 ROSE_HEIGHT <- 400
 
-checkbox_vals <-  c('Wind speed', 'O3', 'NO', 'NO2', 'CO', 'CO2', 'CH4')
+checkbox_vals <-  c('WindSpeed', 'O3', 'NO', 'NO2', 'CO', 'CO2', 'CH4')
 checkbox_labels <-  c('Wind rose', 'O3', 'NO', 'NO2', 'CO', 'CO2', 'CH4')
 
 about_text <- "
@@ -47,23 +48,16 @@ body <- dashboardBody(
                     id="main_content_timeseries",
                     fluidRow(
                         box(
-                            fluidRow(
-                                    radioButtons(
-                                        "daterange",
-                                        "Date range",
-                                        c("Previous week" = "week",
-                                          "All time" = "all"),
-                                        inline=TRUE
-                                    ),
-                                    downloadButton(
-                                        "download",
-                                        "Download data"
-                                    ),
-                                    align="center"
-                            ),
                             withSpinner(
-                                plotOutput("aqbox", height=8*PLOT_HEIGHT),
+                                plotlyOutput("aqbox", height=9*PLOT_HEIGHT),
                                 color = "#28a745"
+                            ),
+                            fluidRow(
+                                downloadButton(
+                                    "download",
+                                    "Download data"
+                                ),
+                                align="center"
                             ),
                             solidHeader = TRUE,
                             width=12,
