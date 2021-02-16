@@ -48,18 +48,15 @@ body <- dashboardBody(
                     fluidRow(
                         box(
                             fluidRow(
-                                    radioButtons(
-                                        "daterange",
-                                        "Date range",
-                                        c("Previous week" = "week",
-                                          "All time" = "all"),
-                                        inline=TRUE
-                                    ),
-                                    downloadButton(
-                                        "download",
-                                        "Download data"
-                                    ),
-                                    align="center"
+                                radioButtons(
+                                    "daterange",
+                                    "Date range",
+                                    c("Previous week" = "week",
+                                      "All time" = "all"),
+                                    inline=TRUE,
+                                    width="100%",
+                                ),
+                            align="center"
                             ),
                             withSpinner(
                                 plotOutput("aqbox", height=8*PLOT_HEIGHT),

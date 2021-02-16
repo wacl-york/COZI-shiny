@@ -247,14 +247,6 @@ server <- function(input, output) {
         }
     })
     
-    output$download <- downloadHandler(
-        filename = function() {
-            sprintf("cozidata_%s_%s.csv", Sys.Date(), input$daterange)
-        },
-        content = function(file) {
-           write_csv(data_to_plot(), file) 
-        }
-    )
     
     ####### Spatial page
     output$leaflet <- renderLeaflet({
