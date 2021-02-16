@@ -52,13 +52,6 @@ body <- dashboardBody(
                                 plotlyOutput("aqbox", height=9*PLOT_HEIGHT),
                                 color = "#28a745"
                             ),
-                            fluidRow(
-                                downloadButton(
-                                    "download",
-                                    "Download data"
-                                ),
-                                align="center"
-                            ),
                             solidHeader = TRUE,
                             width=12,
                             title="Time series",

@@ -1,26 +1,24 @@
 library(shiny)
 library(shinyjs)
-library(ggplot2)
 library(lubridate)
 library(data.table)
 library(openair)
 library(plotly)
-# TODO Remove unneeded dependencies
 
 # File where clean data is stored
-#DATA_FN <- "/mnt/shiny/cozi/data.csv"
-DATA_FN <- "clean.csv"
+DATA_FN <- "/mnt/shiny/cozi/data.csv"
 
 # Variables that will be plotted in the time-series
-TIME_SERIES_VARS <- list("O3"="ppbV", 
-              "NO"="ppbV",
-              "NO2"="ppbV",
-              #"CO"="ppbV",
-              #"CO2"="ppmV",
-              #"CH4"="ppmV",
-              "Temperature"="°C",
-              "RelativeHumidity"="%",
-              "WindSpeed"="ms¹")
+TIME_SERIES_VARS <- list(
+    "NO2"=list(unit="ppbV", label="NOx"),
+    "O3"=list(unit="ppbV", label="O3"),
+    "CO"=list(unit="ppbV", label="CO"),
+    "CO2"=list(unit="ppmV", label="CO2"),
+    "CH4"=list(unit="ppmV", label="CH4"),
+    "Temperature"=list(unit="°C", label="Temp"),
+    "RelativeHumidity"=list(unit="%", label="RH"),
+    "WindSpeed"=list(unit="ms¹", label="WS")
+)
 
 to_camel <- function(x){ 
     capit <- function(x) paste0(toupper(substring(x, 1, 1)), substring(x, 2, nchar(x)))
@@ -31,8 +29,6 @@ to_camel <- function(x){
 week_ago <- function() {
     as_datetime(now(tzone="UTC") - days(7))
 }
-
-deg2rad <- function(deg) {(deg * pi) / (180)}
 
 server <- function(input, output) {
 
@@ -62,24 +58,37 @@ server <- function(input, output) {
     df[, Timestamp := floor_date(Timestamp, "15 min")]
     df <- df[, lapply(.SD, mean, na.rm=T), by='Timestamp']
     
-    #data_to_plot <- reactive({
-    #    req(input$daterange)
-    #    if (input$daterange == 'week') {
-    #        data <- df[ timestamp >= week_ago() ]
-    #    } else if (input$daterange == 'all') {
-    #        data <- df
-    #    } else {
-    #        return(NULL)
-    #    }
-    #    data
-    #})
     output$aqbox <- renderPlotly({
         plots <- lapply(names(TIME_SERIES_VARS), function(var) {
-            plot_ly(df[!is.na(get(var))], x=~Timestamp, y=as.formula(sprintf("~%s", var))) %>%
-                add_lines(name = var) %>%
+            if (var == 'NO2') {
+                p <- plot_ly(df[!is.na(get(var))], 
+                        x=~Timestamp,
+                        y=~NO2,
+                        type='scatter',
+                        mode='lines',
+                        name=var,
+                        legendgroup=as.formula(sprintf("~%s", var)),
+                        showlegend=TRUE) %>%
+                    add_lines(y=~NO,
+                              name = "NO",
+                              showlegend=TRUE)
+            } else {
+                p <- plot_ly(df[!is.na(get(var))], 
+                        x=~Timestamp,
+                        y=as.formula(sprintf("~%s", var)),
+                        type='scatter',
+                        mode='lines',
+                        name=var,
+                        legendgroup=as.formula(sprintf("~%s", var)),
+                        line = list(color = 'rgb(93, 104, 250)'),
+                        showlegend=FALSE)
+            }
+            p %>%
                 layout(
                     yaxis=list(
-                        title=sprintf("%s (%s)", var, TIME_SERIES_VARS[[var]])
+                        title=sprintf("%s (%s)", 
+                                      TIME_SERIES_VARS[[var]][["label"]], 
+                                      TIME_SERIES_VARS[[var]][["unit"]])
                     )
                 ) %>%
                 toWebGL()
@@ -96,6 +105,11 @@ server <- function(input, output) {
                     rangeslider = list(type = "date"),
                     rangeselector = list(
                         buttons = list(
+                            list(
+                                count = 7,
+                                label = "1 wk",
+                                step = "day",
+                                stepmode = "backward"),
                             list(
                                 count = 3,
                                 label = "3 mo",
@@ -161,15 +175,6 @@ server <- function(input, output) {
             pollutionRose(data[ !is.na(get(var)) ], ws="WindSpeed", wd="WindDirection", pollutant=var)
         }
     })
-    
-    output$download <- downloadHandler(
-        filename = function() {
-            sprintf("cozidata_%s.csv", Sys.Date())
-        },
-        content = function(file) {
-           write_csv(data_to_plot()[order(-timestamp)], file) 
-        }
-    )
     
     ####### Spatial page
     output$leaflet <- renderLeaflet({
