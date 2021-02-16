@@ -191,6 +191,18 @@ server <- function(input, output) {
         data
     })
     
+    spatial_data_to_plot <- reactive({
+        req(input$daterange_spatial)
+        if (input$daterange_spatial == 'week') {
+            data <- df[ timestamp >= week_ago() ]
+        } else if (input$daterange_spatial == 'all') {
+            data <- df
+        } else {
+            return(NULL)
+        }
+        data
+    })
+    
     # Plot UI element has reactive dependency only on the date range.
     # When the date range is changed, all the measurand plots are created
     # NB: Shouldn't _really_ need the !is.na(get(var)) subset, as the geom_line()
@@ -225,7 +237,7 @@ server <- function(input, output) {
     
     output$windrose <- renderPlot({
         req(input$windrose_var)
-        data <- data_to_plot()
+        data <- spatial_data_to_plot()
         var <- input$windrose_var
         
         if (var == 'Wind speed') {
@@ -240,7 +252,7 @@ server <- function(input, output) {
             sprintf("cozidata_%s_%s.csv", Sys.Date(), input$daterange)
         },
         content = function(file) {
-           write_csv(data_to_plot()[order(-timestamp)], file) 
+           write_csv(data_to_plot(), file) 
         }
     )
     
