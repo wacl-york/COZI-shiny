@@ -34,7 +34,7 @@ week_ago <- function() {
 plot_NOx <- function(data, daterange, unit="", display_x_labels=FALSE) {
     melted <- melt(data, id.vars="timestamp", measure.vars=NOX_VARS)
     plt <- plot_data_var(melted, 'value', daterange, display_x_labels=display_x_labels, unit=unit)
-    plt$layers[[1]] <- NULL
+    plt$layers[[2]] <- NULL
     
     plt +
         ylab(sprintf("%s (%s)", "NOx", unit)) +
@@ -54,11 +54,17 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
         minor_x_gridline <- element_line(colour='black', size=0.05)
         earliest_date <- week_ago()
     } else if (daterange == 'all') {
-        x_axis_break <- '1 month'
+        x_axis_break <- '1 week'
         x_axis_minor_break <- '1 day'
         x_axis_label_fmt <- "%d %b %Y"
         minor_x_gridline <- element_blank()
         earliest_date <- FIRST_TIMEPOINT
+    } else if (daterange == '2 days') {
+        x_axis_break <- '1 day'
+        x_axis_minor_break <- '12 hours'
+        x_axis_label_fmt <- "%d %b %H:%S"
+        minor_x_gridline <- element_line(colour='black', size=0.05)
+        earliest_date <- as_date(now(tzone="UTC") - days(1))
     }
         
     if (unit != "") {
@@ -68,21 +74,27 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
     }
     
     # Generate background shading by alternate day
-    if (daterange == 'week') {
-        num_days_plot <- floor(difftime(today(), earliest_date, units = "days")/2)
-        shading_start <- POSIXct(num_days_plot+1)
-        shading_start[1] <- today()
-        for (i in 1:num_days_plot) {
-            shading_start[i+1] <- today() - days(i*2)
-        }
-        background_shading <- data.frame(start=as_datetime(shading_start),
-                                         end = as_datetime(ifelse(shading_start == today(), now(), shading_start + days(1))),
-                                         ymin=-Inf,
-                                         ymax=Inf)
+    num_days_plot <- floor(difftime(today(), earliest_date, units = "days")/2)
+    shading_start <- POSIXct(num_days_plot+1)
+    shading_start[1] <- today()
+    for (i in 1:num_days_plot) {
+        shading_start[i+1] <- today() - days(i*2)
     }
+    background_shading <- data.frame(start=as_datetime(shading_start),
+                                     end = as_datetime(ifelse(shading_start == today(), now(), shading_start + days(1))),
+                                     ymin=-Inf,
+                                     ymax=Inf)
     
     var <- sym(var)
     plt <- ggplot(data) +
+            geom_rect(aes(xmin=start, 
+                          xmax=end, 
+                          ymin=ymin, 
+                          ymax=ymax),
+                      alpha=0.2,
+                      data=background_shading,
+                      na.rm=TRUE
+                      ) +
             geom_line(aes(x=timestamp, y=!!var), 
                       colour="black",
                       na.rm=TRUE) +
@@ -100,7 +112,6 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                   plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
                   panel.grid.major.y = element_line(colour='black', size=0.1),
                   panel.grid.minor.x = minor_x_gridline,
-                  panel.grid.minor.y = element_blank(),
                   panel.grid.major.x = element_blank(),
                   plot.title=element_text(hjust=0.5, size=15, face="bold"),
                   axis.text.x = element_text(size=12, angle=45, hjust=1),
@@ -108,23 +119,12 @@ plot_data_var <- function(data, var, daterange, unit="", display_x_labels=FALSE)
                   axis.title.y = element_text(size=11, margin=margin(r=20)),
                   panel.spacing.y = unit(1.5, "lines")
                  )
-    if (!display_x_labels) {
-        plt <- plt + theme(
-          axis.ticks.x = element_blank(),
-          axis.text.x = element_blank(),
-        )
-    }
-    if (daterange == 'week') {
-        plt <- plt + geom_rect(aes(xmin=start, 
-                      xmax=end, 
-                      ymin=ymin, 
-                      ymax=ymax),
-                  alpha=0.2,
-                  data=background_shading,
-                  na.rm=TRUE
-                  ) 
-    }
-    
+            if (!display_x_labels) {
+                plt <- plt + theme(
+                  axis.ticks.x = element_blank(),
+                  axis.text.x = element_blank(),
+                )
+            }
     plt
 }
 
